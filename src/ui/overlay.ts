@@ -28,21 +28,21 @@ export class Overlay {
   /** Show privacy screen between turns */
   showPassScreen(playerId: number, turnNumber: number, onReady: () => void): void {
     const color = PLAYER_COLORS[playerId] ?? '#888';
-    const name = PLAYER_NAMES[playerId] ?? `Player ${playerId + 1}`;
+    const name = PLAYER_NAMES[playerId] ?? `Игрок ${playerId + 1}`;
     this.container.innerHTML = `
       <div style="
         position:absolute; inset:0; display:flex; flex-direction:column;
         align-items:center; justify-content:center; background:#1a1a2e;
         z-index:100;
       ">
-        <div style="font-size:1.2rem; opacity:0.6; margin-bottom:1rem;">Turn ${turnNumber}</div>
-        <div style="font-size:2rem; margin-bottom:0.5rem;">Pass the device to</div>
+        <div style="font-size:1.2rem; opacity:0.6; margin-bottom:1rem;">Ход ${turnNumber}</div>
+        <div style="font-size:2rem; margin-bottom:0.5rem;">Передай устройство</div>
         <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name}</div>
         <button id="pass-ready-btn" style="
           padding:1rem 3rem; font-size:1.5rem; border:2px solid ${color};
           background:transparent; color:${color}; cursor:pointer; border-radius:8px;
           transition: background 0.2s;
-        ">I'm ${name} - Show Board</button>
+        ">Я ${name} - Показать поле</button>
       </div>
     `;
     document.getElementById('pass-ready-btn')!.addEventListener('click', () => {
@@ -54,19 +54,19 @@ export class Overlay {
   /** Show victory screen */
   showVictory(playerId: number, onNewGame: () => void): void {
     const color = PLAYER_COLORS[playerId] ?? '#888';
-    const name = PLAYER_NAMES[playerId] ?? `Player ${playerId + 1}`;
+    const name = PLAYER_NAMES[playerId] ?? `Игрок ${playerId + 1}`;
     this.container.innerHTML = `
       <div style="
         position:absolute; inset:0; display:flex; flex-direction:column;
         align-items:center; justify-content:center; background:rgba(0,0,0,0.85);
         z-index:100;
       ">
-        <div style="font-size:2rem; margin-bottom:1rem;">Victory!</div>
-        <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name} wins!</div>
+        <div style="font-size:2rem; margin-bottom:1rem;">Победа!</div>
+        <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name} выиграл!</div>
         <button id="new-game-btn" style="
           padding:1rem 3rem; font-size:1.5rem; border:2px solid #eee;
           background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-        ">New Game</button>
+        ">Новая игра</button>
       </div>
     `;
     document.getElementById('new-game-btn')!.addEventListener('click', () => {
@@ -87,7 +87,7 @@ export class Overlay {
         <button id="continue-btn" style="
           padding:0.7rem 2rem; font-size:1.2rem; border:2px solid #eee;
           background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-        ">Next</button>
+        ">Далее</button>
       </div>
     `;
     document.getElementById('continue-btn')!.addEventListener('click', () => {
@@ -137,7 +137,7 @@ export class Overlay {
       if (splitInput) splitInput.value = String(splitValue);
 
       const splitLabel = picker.querySelector('#split-label');
-      if (splitLabel) splitLabel.textContent = `Units: ${splitValue} / ${available}`;
+      if (splitLabel) splitLabel.textContent = `Юниты: ${splitValue} / ${available}`;
     };
 
     const dirGrid = [
@@ -153,7 +153,7 @@ export class Overlay {
             .map((dir) => {
               if (!dir) {
                 return `<div style="width:48px;height:48px;display:flex;align-items:center;justify-content:center;
-                  opacity:0.4; font-size:0.8rem;">HOLD</div>`;
+                  opacity:0.4; font-size:0.8rem;">СТОП</div>`;
               }
               const dest = { x: pos.x + DIRECTION_DELTA[dir].x, y: pos.y + DIRECTION_DELTA[dir].y };
               const inBounds = board.isInBounds(dest);
@@ -179,8 +179,8 @@ export class Overlay {
       padding:1.5rem; z-index:60; display:flex; flex-direction:column; align-items:center; gap:12px;
     `;
     picker.innerHTML = `
-      <div style="font-size:1rem; opacity:0.7;">Cell (${pos.x}, ${pos.y})</div>
-      <div id="split-label" style="font-size:1.1rem;">Units: ${splitValue} / ${available}</div>
+      <div style="font-size:1rem; opacity:0.7;">Клетка (${pos.x}, ${pos.y})</div>
+      <div id="split-label" style="font-size:1.1rem;">Юниты: ${splitValue} / ${available}</div>
       <div style="display:flex; align-items:center; gap:8px;">
         <button id="split-minus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">-</button>
         <input id="split-value" type="range" min="1" max="${available}" value="${splitValue}" style="width:120px;">
@@ -190,7 +190,7 @@ export class Overlay {
       <button id="dir-cancel" style="
         padding:0.5rem 1.5rem; border:1px solid #555; background:transparent;
         color:#eee; cursor:pointer; border-radius:6px; margin-top:8px;
-      ">Cancel</button>
+      ">Отмена</button>
     `;
     this.container.appendChild(picker);
 
@@ -237,13 +237,13 @@ export class Overlay {
     if (existing) existing.remove();
 
     const color = PLAYER_COLORS[this.currentPlayerId] ?? '#888';
-    const name = PLAYER_NAMES[this.currentPlayerId] ?? `Player ${this.currentPlayerId + 1}`;
+    const name = PLAYER_NAMES[this.currentPlayerId] ?? `Игрок ${this.currentPlayerId + 1}`;
 
     const ordersList = this.currentOrders
       .map(
         (o, i) =>
           `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
-            <span>(${o.from.x},${o.from.y}) ${DIRECTION_LABELS[o.direction]} ${o.unitCount} units</span>
+            <span>(${o.from.x},${o.from.y}) ${DIRECTION_LABELS[o.direction]} ${o.unitCount} юн.</span>
             <button class="remove-order-btn" data-idx="${i}" style="
               border:1px solid #555;background:transparent;color:#e55;cursor:pointer;
               border-radius:4px;padding:2px 8px;font-size:0.9rem;
@@ -260,18 +260,18 @@ export class Overlay {
       min-width:220px; max-height:80vh; overflow-y:auto;
     `;
     panel.innerHTML = `
-      <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">${name}'s Orders</div>
-      <div style="font-size:0.9rem; opacity:0.6; margin-bottom:0.5rem;">Click your stacks to assign orders</div>
-      ${ordersList || '<div style="opacity:0.4;">No orders yet</div>'}
+      <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">Приказы: ${name}</div>
+      <div style="font-size:0.9rem; opacity:0.6; margin-bottom:0.5rem;">Кликни по своим отрядам</div>
+      ${ordersList || '<div style="opacity:0.4;">Пока нет приказов</div>'}
       <div style="display:flex; gap:8px; margin-top:1rem;">
         <button id="clear-orders-btn" style="
           flex:1; padding:0.5rem; border:1px solid #555; background:transparent;
           color:#eee; cursor:pointer; border-radius:6px;
-        ">Clear</button>
+        ">Сбросить</button>
         <button id="confirm-orders-btn" style="
           flex:1; padding:0.5rem; border:2px solid ${color}; background:${color}33;
           color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
-        ">Confirm</button>
+        ">Готово</button>
       </div>
     `;
     this.container.appendChild(panel);
@@ -310,24 +310,24 @@ export class Overlay {
         align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
       ">
         <div style="font-size:3rem; font-weight:bold; margin-bottom:2rem; letter-spacing:0.2em;">ABAT</div>
-        <div style="font-size:1rem; opacity:0.5; margin-bottom:2rem;">Strategy Game</div>
+        <div style="font-size:1rem; opacity:0.5; margin-bottom:2rem;">Стратегическая игра</div>
         <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
           <label style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Grid Width:</span>
+            <span>Ширина поля:</span>
             <input id="cfg-cols" type="number" min="4" max="20" value="8" style="
               width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
               color:#eee; border-radius:6px; text-align:center;
             ">
           </label>
           <label style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Grid Height:</span>
+            <span>Высота поля:</span>
             <input id="cfg-rows" type="number" min="4" max="20" value="8" style="
               width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
               color:#eee; border-radius:6px; text-align:center;
             ">
           </label>
           <label style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Players:</span>
+            <span>Игроки:</span>
             <select id="cfg-players" style="
               width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
               color:#eee; border-radius:6px; text-align:center;
@@ -338,7 +338,7 @@ export class Overlay {
             </select>
           </label>
           <label style="display:flex; justify-content:space-between; align-items:center;">
-            <span>Starting Units:</span>
+            <span>Начальные юниты:</span>
             <input id="cfg-units" type="number" min="5" max="100" value="20" style="
               width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
               color:#eee; border-radius:6px; text-align:center;
@@ -348,7 +348,7 @@ export class Overlay {
             padding:1rem; font-size:1.3rem; border:2px solid #457B9D;
             background:#457B9D33; color:#eee; cursor:pointer; border-radius:8px;
             margin-top:1rem; font-weight:bold;
-          ">Start Game</button>
+          ">Начать игру</button>
         </div>
       </div>
     `;

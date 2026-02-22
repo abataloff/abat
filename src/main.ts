@@ -56,21 +56,21 @@ function startGame(config: { cols: number; rows: number; playerCount: number; st
     const lines: string[] = [];
     if (turnResult.combats.length > 0) {
       for (const c of turnResult.combats) {
-        const winnerName = PLAYER_NAMES[c.winnerId] ?? `Player ${c.winnerId + 1}`;
+        const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
         const loserNames = c.participants
           .filter((p) => p.playerId !== c.winnerId)
-          .map((p) => `${PLAYER_NAMES[p.playerId] ?? `P${p.playerId + 1}`}(${p.unitsBefore})`)
+          .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
           .join(', ');
         lines.push(
-          `Battle (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} wins, ${c.unitsAfter} left`,
+          `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
         );
       }
     } else {
-      lines.push('No battles this turn.');
+      lines.push('В этом ходу боев не было.');
     }
     if (turnResult.eliminations.length > 0) {
       for (const pid of turnResult.eliminations) {
-        lines.push(`${PLAYER_NAMES[pid] ?? `Player ${pid + 1}`} eliminated!`);
+        lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
       }
     }
 
@@ -88,7 +88,7 @@ function startGame(config: { cols: number; rows: number; playerCount: number; st
 
 function updateStatusBar() {
   if (!game) { statusBar.innerHTML = ''; return; }
-  const turnHtml = `<span class="status-turn">Turn ${game.turnNumber}</span>`;
+  const turnHtml = `<span class="status-turn">Ход ${game.turnNumber}</span>`;
   const playersHtml = game.players
     .map((p) => {
       const units = game.board.getPlayerTotalUnits(p.id);

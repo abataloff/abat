@@ -76,4 +76,4 @@ export interface TurnResult {
 }
 
 export const PLAYER_COLORS = ['#E63946', '#457B9D', '#2A9D8F', '#E9C46A'];
-export const PLAYER_NAMES = ['Red', 'Blue', 'Teal', 'Gold'];
+export const PLAYER_NAMES = ['Красный', 'Синий', 'Бирюзовый', 'Золотой'];
