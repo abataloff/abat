@@ -1,0 +1,294 @@
+import { Board } from '../engine/board';
+import { MoveOrder, DIRECTION_DELTA, PLAYER_COLORS, Position, CombatResult } from '../engine/types';
+
+export interface RenderState {
+  board: Board;
+  orders: MoveOrder[];
+  selectedCell: Position | null;
+  validMoves: Position[];
+  currentPlayerId: number | null;
+  highlightCells: Position[];
+  combatCells: CombatResult[];
+}
+
+export class Renderer {
+  private ctx: CanvasRenderingContext2D;
+  private cellSize = 0;
+  private offsetX = 0;
+  private offsetY = 0;
+
+  constructor(
+    private canvas: HTMLCanvasElement,
+    private cols: number,
+    private rows: number,
+  ) {
+    this.ctx = canvas.getContext('2d')!;
+    this.resize();
+  }
+
+  resize(): void {
+    const parent = this.canvas.parentElement!;
+    const maxW = parent.clientWidth - 40;
+    const maxH = parent.clientHeight - 40;
+    this.cellSize = Math.floor(Math.min(maxW / this.cols, maxH / this.rows));
+    this.cellSize = Math.max(this.cellSize, 40); // minimum cell size
+    const totalW = this.cellSize * this.cols;
+    const totalH = this.cellSize * this.rows;
+    this.canvas.width = totalW;
+    this.canvas.height = totalH;
+    this.offsetX = 0;
+    this.offsetY = 0;
+  }
+
+  getCellSize(): number {
+    return this.cellSize;
+  }
+
+  pixelToCell(px: number, py: number): Position | null {
+    const x = Math.floor((px - this.offsetX) / this.cellSize);
+    const y = Math.floor((py - this.offsetY) / this.cellSize);
+    if (x < 0 || x >= this.cols || y < 0 || y >= this.rows) return null;
+    return { x, y };
+  }
+
+  cellToPixelCenter(pos: Position): { px: number; py: number } {
+    return {
+      px: this.offsetX + pos.x * this.cellSize + this.cellSize / 2,
+      py: this.offsetY + pos.y * this.cellSize + this.cellSize / 2,
+    };
+  }
+
+  render(state: RenderState): void {
+    const { ctx } = this;
+    ctx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+
+    this.drawGrid();
+    this.drawHighlights(state.highlightCells, state.currentPlayerId);
+    this.drawCombatHighlights(state.combatCells);
+    this.drawSelectedCell(state.selectedCell);
+    this.drawValidMoves(state.validMoves);
+    this.drawStacks(state.board);
+    this.drawOrders(state.orders);
+    this.drawCombatLabels(state.combatCells);
+    this.drawCoordinates();
+  }
+
+  private drawGrid(): void {
+    const { ctx, cellSize, offsetX, offsetY, cols, rows } = this;
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        const px = offsetX + x * cellSize;
+        const py = offsetY + y * cellSize;
+        ctx.fillStyle = (x + y) % 2 === 0 ? '#16213e' : '#1a1a2e';
+        ctx.fillRect(px, py, cellSize, cellSize);
+      }
+    }
+
+    ctx.strokeStyle = '#2a2a4a';
+    ctx.lineWidth = 1;
+    for (let x = 0; x <= cols; x++) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX + x * cellSize, offsetY);
+      ctx.lineTo(offsetX + x * cellSize, offsetY + rows * cellSize);
+      ctx.stroke();
+    }
+    for (let y = 0; y <= rows; y++) {
+      ctx.beginPath();
+      ctx.moveTo(offsetX, offsetY + y * cellSize);
+      ctx.lineTo(offsetX + cols * cellSize, offsetY + y * cellSize);
+      ctx.stroke();
+    }
+  }
+
+  private drawCoordinates(): void {
+    const { ctx, cellSize, offsetX, offsetY, cols, rows } = this;
+    ctx.fillStyle = 'rgba(255,255,255,0.15)';
+    ctx.font = `${Math.max(9, cellSize * 0.18)}px system-ui`;
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'top';
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        ctx.fillText(`${x},${y}`, offsetX + x * cellSize + 3, offsetY + y * cellSize + 2);
+      }
+    }
+  }
+
+  private drawSelectedCell(cell: Position | null): void {
+    if (!cell) return;
+    const { ctx, cellSize, offsetX, offsetY } = this;
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(
+      offsetX + cell.x * cellSize + 2,
+      offsetY + cell.y * cellSize + 2,
+      cellSize - 4,
+      cellSize - 4,
+    );
+  }
+
+  private drawValidMoves(cells: Position[]): void {
+    const { ctx, cellSize, offsetX, offsetY } = this;
+    for (const cell of cells) {
+      ctx.fillStyle = 'rgba(255, 255, 255, 0.1)';
+      ctx.fillRect(
+        offsetX + cell.x * cellSize,
+        offsetY + cell.y * cellSize,
+        cellSize,
+        cellSize,
+      );
+    }
+  }
+
+  private drawHighlights(cells: Position[], playerId: number | null): void {
+    if (playerId === null) return;
+    const { ctx, cellSize, offsetX, offsetY } = this;
+    const color = PLAYER_COLORS[playerId] ?? '#888';
+    for (const cell of cells) {
+      ctx.fillStyle = color + '22';
+      ctx.fillRect(
+        offsetX + cell.x * cellSize,
+        offsetY + cell.y * cellSize,
+        cellSize,
+        cellSize,
+      );
+    }
+  }
+
+  private drawCombatHighlights(combats: CombatResult[]): void {
+    const { ctx, cellSize, offsetX, offsetY } = this;
+    for (const combat of combats) {
+      const { x, y } = combat.position;
+      // Red pulsing border for combat cells
+      ctx.fillStyle = 'rgba(255, 50, 50, 0.15)';
+      ctx.fillRect(
+        offsetX + x * cellSize,
+        offsetY + y * cellSize,
+        cellSize,
+        cellSize,
+      );
+      ctx.strokeStyle = '#ff3333';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(
+        offsetX + x * cellSize + 1,
+        offsetY + y * cellSize + 1,
+        cellSize - 2,
+        cellSize - 2,
+      );
+    }
+  }
+
+  private drawCombatLabels(combats: CombatResult[]): void {
+    const { ctx, cellSize } = this;
+    for (const combat of combats) {
+      const { px, py } = this.cellToPixelCenter(combat.position);
+      const winnerColor = PLAYER_COLORS[combat.winnerId] ?? '#fff';
+
+      // "X" marks for eliminated players at the top of the cell
+      const fontSize = Math.max(10, cellSize * 0.2);
+      ctx.font = `bold ${fontSize}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'bottom';
+
+      // Show combat result below the stack
+      ctx.fillStyle = winnerColor;
+      ctx.font = `bold ${Math.max(9, cellSize * 0.18)}px system-ui`;
+      ctx.textBaseline = 'top';
+      const resultY = py + cellSize * 0.3;
+      const label = `${combat.unitsAfter}`;
+
+      // Background
+      const metrics = ctx.measureText(label);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(px - metrics.width / 2 - 3, resultY - 2, metrics.width + 6, fontSize + 2);
+      ctx.fillStyle = winnerColor;
+      ctx.fillText(label, px, resultY);
+    }
+  }
+
+  private drawStacks(board: Board): void {
+    const { ctx, cellSize } = this;
+    for (const pos of board.getOccupiedCells()) {
+      const stacks = board.getStacks(pos);
+      for (const stack of stacks) {
+        if (!stack.alive) continue;
+        const { px, py } = this.cellToPixelCenter(pos);
+        const radius = Math.min(cellSize * 0.35, 8 + Math.log2(stack.units + 1) * 4);
+        const color = PLAYER_COLORS[stack.playerId] ?? '#888';
+
+        // Shadow
+        ctx.beginPath();
+        ctx.arc(px + 2, py + 2, radius, 0, Math.PI * 2);
+        ctx.fillStyle = 'rgba(0,0,0,0.3)';
+        ctx.fill();
+
+        // Circle
+        ctx.beginPath();
+        ctx.arc(px, py, radius, 0, Math.PI * 2);
+        ctx.fillStyle = color;
+        ctx.fill();
+        ctx.strokeStyle = '#fff';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+
+        // Unit count
+        ctx.fillStyle = '#fff';
+        ctx.font = `bold ${Math.max(12, cellSize * 0.3)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.fillText(String(stack.units), px, py);
+      }
+    }
+  }
+
+  private drawOrders(orders: MoveOrder[]): void {
+    const { ctx, cellSize } = this;
+    for (const order of orders) {
+      const from = this.cellToPixelCenter(order.from);
+      const delta = DIRECTION_DELTA[order.direction];
+      const to = this.cellToPixelCenter({
+        x: order.from.x + delta.x,
+        y: order.from.y + delta.y,
+      });
+      const color = PLAYER_COLORS[order.playerId] ?? '#888';
+
+      // Arrow line
+      ctx.beginPath();
+      ctx.moveTo(from.px, from.py);
+      ctx.lineTo(to.px, to.py);
+      ctx.strokeStyle = color + 'cc';
+      ctx.lineWidth = Math.max(2, Math.min(order.unitCount, 8));
+      ctx.stroke();
+
+      // Arrowhead
+      const angle = Math.atan2(to.py - from.py, to.px - from.px);
+      const headLen = cellSize * 0.2;
+      ctx.beginPath();
+      ctx.moveTo(to.px, to.py);
+      ctx.lineTo(
+        to.px - headLen * Math.cos(angle - Math.PI / 6),
+        to.py - headLen * Math.sin(angle - Math.PI / 6),
+      );
+      ctx.lineTo(
+        to.px - headLen * Math.cos(angle + Math.PI / 6),
+        to.py - headLen * Math.sin(angle + Math.PI / 6),
+      );
+      ctx.closePath();
+      ctx.fillStyle = color + 'cc';
+      ctx.fill();
+
+      // Unit count label on arrow
+      const midX = (from.px + to.px) / 2;
+      const midY = (from.py + to.py) / 2;
+      ctx.font = `bold ${Math.max(10, cellSize * 0.22)}px system-ui`;
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+
+      const label = String(order.unitCount);
+      const metrics = ctx.measureText(label);
+      ctx.fillStyle = 'rgba(0,0,0,0.7)';
+      ctx.fillRect(midX - metrics.width / 2 - 3, midY - 8, metrics.width + 6, 16);
+      ctx.fillStyle = '#fff';
+      ctx.fillText(label, midX, midY);
+    }
+  }
+}
