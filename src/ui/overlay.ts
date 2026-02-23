@@ -1,4 +1,5 @@
 import { Direction, MoveOrder, Position, PLAYER_COLORS, PLAYER_NAMES, DIRECTION_DELTA, GameConfig } from '../engine/types';
+import { AiDifficulty } from '../engine/ai';
 import { Board } from '../engine/board';
 import { PlayerInfo } from '../net/protocol';
 
@@ -473,8 +474,8 @@ export class Overlay {
     });
   }
 
-  /** Show mode selection: Hotseat vs Online */
-  showModeSelect(onHotseat: () => void, onOnline: () => void): void {
+  /** Show mode selection: Hotseat vs AI vs Online */
+  showModeSelect(onHotseat: () => void, onAi: () => void, onOnline: () => void): void {
     this.container.innerHTML = `
       <div style="
         position:absolute; inset:0; display:flex; flex-direction:column;
@@ -487,6 +488,10 @@ export class Overlay {
             padding:1rem; font-size:1.3rem; border:2px solid #457B9D;
             background:#457B9D33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
           ">Локальная игра</button>
+          <button id="mode-ai" style="
+            padding:1rem; font-size:1.3rem; border:2px solid #E9C46A;
+            background:#E9C46A33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
+          ">Против компьютера</button>
           <button id="mode-online" style="
             padding:1rem; font-size:1.3rem; border:2px solid #2A9D8F;
             background:#2A9D8F33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
@@ -498,9 +503,100 @@ export class Overlay {
       this.container.innerHTML = '';
       onHotseat();
     });
+    document.getElementById('mode-ai')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      onAi();
+    });
     document.getElementById('mode-online')!.addEventListener('click', () => {
       this.container.innerHTML = '';
       onOnline();
+    });
+  }
+
+  /** Show AI game setup screen */
+  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number) => void, onBack: () => void): void {
+    this.container.innerHTML = `
+      <div style="
+        position:absolute; inset:0; display:flex; flex-direction:column;
+        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
+      ">
+        <div style="font-size:2rem; font-weight:bold; margin-bottom:2rem;">Против компьютера</div>
+        <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Ширина поля:</span>
+            <input id="ai-cols" type="number" min="4" max="20" value="8" style="
+              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Высота поля:</span>
+            <input id="ai-rows" type="number" min="4" max="20" value="8" style="
+              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>AI-противники:</span>
+            <select id="ai-count" style="
+              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+              <option value="1">1</option>
+              <option value="2">2</option>
+              <option value="3">3</option>
+            </select>
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Сложность:</span>
+            <select id="ai-difficulty" style="
+              width:130px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+              <option value="easy">Легкий</option>
+              <option value="medium" selected>Средний</option>
+              <option value="hard">Сложный</option>
+            </select>
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Начальные юниты:</span>
+            <input id="ai-units" type="number" min="5" max="100" value="20" style="
+              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+          </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Радиус обзора:</span>
+            <input id="ai-vision" type="number" min="1" max="20" value="2" style="
+              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
+              color:#eee; border-radius:6px; text-align:center;
+            ">
+          </label>
+          <button id="ai-start-btn" style="
+            padding:1rem; font-size:1.3rem; border:2px solid #E9C46A;
+            background:#E9C46A33; color:#eee; cursor:pointer; border-radius:8px;
+            margin-top:1rem; font-weight:bold;
+          ">Начать игру</button>
+          <button id="ai-back-btn" style="
+            padding:0.5rem; border:1px solid #555;
+            background:transparent; color:#eee; cursor:pointer; border-radius:6px;
+          ">Назад</button>
+        </div>
+      </div>
+    `;
+    document.getElementById('ai-start-btn')!.addEventListener('click', () => {
+      const cols = parseInt((document.getElementById('ai-cols') as HTMLInputElement).value) || 8;
+      const rows = parseInt((document.getElementById('ai-rows') as HTMLInputElement).value) || 8;
+      const aiCount = parseInt((document.getElementById('ai-count') as HTMLSelectElement).value) || 1;
+      const aiDifficulty = (document.getElementById('ai-difficulty') as HTMLSelectElement).value as AiDifficulty;
+      const startingUnits = parseInt((document.getElementById('ai-units') as HTMLInputElement).value) || 20;
+      const visionRadius = parseInt((document.getElementById('ai-vision') as HTMLInputElement).value) || 2;
+      this.container.innerHTML = '';
+      onStart({ cols, rows, startingUnits, visionRadius }, aiDifficulty, aiCount);
+    });
+    document.getElementById('ai-back-btn')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      onBack();
     });
   }
 

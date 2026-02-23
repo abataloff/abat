@@ -8,6 +8,7 @@ import { GameClient } from './net/client';
 import { deserializeBoard } from './net/serialization';
 import { BoardSnapshot, PlayerInfo, ServerMessage, TurnResolvedMsg } from './net/protocol';
 import { Board } from './engine/board';
+import { generateOrders, AiDifficulty } from './engine/ai';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const overlayEl = document.getElementById('overlay') as HTMLElement;
@@ -22,6 +23,7 @@ function showMainMenu(): void {
   statusBar.innerHTML = '';
   overlay.showModeSelect(
     () => overlay.showSetup(startHotseatGame),
+    () => overlay.showAiSetup(startAiGame, showMainMenu),
     () => overlay.showOnlineLobby({
       onCreate: onCreateRoom,
       onJoin: onJoinRoom,
@@ -235,6 +237,208 @@ function renderHotseatBoard(hidden = false, currentPlayerId?: number, orders?: M
     visibleCells: vis,
   };
   renderer.render(state);
+}
+
+// ============================================================
+// AI mode
+// ============================================================
+
+let aiGame: Game;
+let aiRenderer: Renderer;
+let aiInput: InputHandler;
+let aiDifficulty: AiDifficulty = 'medium';
+let aiPendingOrders: MoveOrder[] = [];
+let aiLastCombats: CombatResult[] = [];
+let aiSelectedCell: Position | null = null;
+let aiValidMoves: Position[] = [];
+
+function startAiGame(
+  config: { cols: number; rows: number; startingUnits: number; visionRadius: number },
+  difficulty: AiDifficulty,
+  aiCount: number,
+) {
+  const playerCount = 1 + aiCount;
+  const gameConfig: GameConfig = { ...config, playerCount };
+  aiGame = new Game(gameConfig);
+  aiRenderer = new Renderer(canvas, gameConfig.cols, gameConfig.rows);
+  aiInput = new InputHandler(canvas, aiRenderer);
+  aiDifficulty = difficulty;
+  aiLastCombats = [];
+
+  aiInput.onCellClick((pos) => {
+    if (aiGame.phase !== GamePhase.ORDER_INPUT) return;
+    overlay.onCellSelected(pos, aiGame.board);
+  });
+
+  window.addEventListener('resize', () => {
+    aiRenderer.resize();
+    renderAiBoard();
+  });
+
+  aiGame.events.on('turn-resolved', (result) => {
+    const turnResult = result as {
+      turnNumber: number;
+      movements: unknown[];
+      combats: CombatResult[];
+      eliminations: number[];
+      winnerId: number | null;
+    };
+
+    aiLastCombats = turnResult.combats;
+
+    if (turnResult.winnerId !== null) {
+      renderAiBoard();
+      updateAiStatusBar();
+      overlay.showVictory(turnResult.winnerId, () => {
+        statusBar.innerHTML = '';
+        showMainMenu();
+      });
+      return;
+    }
+
+    updateAiStatusBar();
+
+    // Show resolution to human player (id=0) - no pass screen needed
+    const humanId = 0;
+    const visible = getVisibleCells(aiGame.board, humanId, aiGame.config.visionRadius);
+
+    const visibleCombats = turnResult.combats.filter((c) =>
+      visible.has(`${c.position.x},${c.position.y}`),
+    );
+    aiLastCombats = visibleCombats;
+
+    const lines: string[] = [];
+    if (visibleCombats.length > 0) {
+      for (const c of visibleCombats) {
+        const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
+        const loserNames = c.participants
+          .filter((p) => p.playerId !== c.winnerId)
+          .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
+          .join(', ');
+        lines.push(
+          `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
+        );
+      }
+    } else {
+      lines.push('В этом ходу боев не было.');
+    }
+    if (turnResult.eliminations.length > 0) {
+      for (const pid of turnResult.eliminations) {
+        lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
+      }
+    }
+
+    renderAiBoard(false, humanId, undefined, visible);
+    overlay.showResolution(lines.join('\n'), () => {
+      aiLastCombats = [];
+      startAiTurn();
+    });
+  });
+
+  updateAiStatusBar();
+  startAiTurn();
+}
+
+function updateAiStatusBar() {
+  if (!aiGame) { statusBar.innerHTML = ''; return; }
+  const diffLabel = aiDifficulty === 'easy' ? 'Легкий' : aiDifficulty === 'medium' ? 'Средний' : 'Сложный';
+  const turnHtml = `<span class="status-turn">Ход ${aiGame.turnNumber} (AI: ${diffLabel})</span>`;
+  const playersHtml = aiGame.players
+    .map((p) => {
+      const units = aiGame.board.getPlayerTotalUnits(p.id);
+      const eliminated = p.eliminated;
+      const cls = eliminated ? 'status-player status-eliminated' : 'status-player';
+      const label = p.id === 0 ? 'Вы' : `AI ${p.id}`;
+      return `<span class="${cls}">
+        <span class="status-dot" style="background:${p.color}"></span>
+        ${label}: ${units}
+      </span>`;
+    })
+    .join('');
+  statusBar.innerHTML = turnHtml + playersHtml;
+}
+
+function startAiTurn() {
+  if (aiGame.phase !== GamePhase.ORDER_INPUT) return;
+
+  // Check if human (player 0) is eliminated
+  const human = aiGame.players[0];
+  if (human.eliminated) {
+    // All AI submit empty orders to continue game
+    for (const p of aiGame.getActivePlayers()) {
+      const orders = generateOrders(aiGame.board, p.id, aiDifficulty, aiGame.config);
+      aiGame.submitOrders({ playerId: p.id, moves: orders });
+    }
+    return;
+  }
+
+  // Human enters orders
+  startAiPlayerOrderPhase();
+}
+
+function startAiPlayerOrderPhase() {
+  const humanId = 0;
+  aiPendingOrders = [];
+  aiSelectedCell = null;
+  aiValidMoves = [];
+  renderAiBoard(false, humanId, aiPendingOrders);
+
+  overlay.startOrderInput(
+    humanId,
+    aiGame.board,
+    (orders) => {
+      aiSelectedCell = null;
+      aiValidMoves = [];
+
+      // Submit human orders
+      aiGame.submitOrders({ playerId: humanId, moves: orders });
+
+      // If game is still in ORDER_INPUT phase, submit AI orders
+      if (aiGame.phase === GamePhase.ORDER_INPUT) {
+        for (const p of aiGame.getActivePlayers()) {
+          if (p.id === humanId) continue;
+          const aiOrders = generateOrders(aiGame.board, p.id, aiDifficulty, aiGame.config);
+          aiGame.submitOrders({ playerId: p.id, moves: aiOrders });
+        }
+      }
+    },
+    (orders) => {
+      aiPendingOrders = orders;
+      renderAiBoard(false, humanId, aiPendingOrders);
+    },
+    (state) => {
+      aiSelectedCell = state.selectedCell;
+      aiValidMoves = state.validMoves;
+      renderAiBoard(false, humanId, aiPendingOrders);
+    },
+  );
+}
+
+function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrder[], visibleCells?: Set<string>) {
+  if (!aiRenderer || !aiGame) return;
+
+  if (hidden) {
+    const ctx = canvas.getContext('2d')!;
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    return;
+  }
+
+  const pid = currentPlayerId ?? 0;
+  const vis: Set<string> = visibleCells ?? getVisibleCells(aiGame.board, pid, aiGame.config.visionRadius);
+
+  const highlightCells = aiGame.board.getPlayerStacks(pid).map((s) => s.pos);
+
+  const state: RenderState = {
+    board: aiGame.board,
+    orders: orders ?? [],
+    selectedCell: aiSelectedCell,
+    validMoves: aiValidMoves,
+    currentPlayerId: pid,
+    highlightCells,
+    combatCells: aiLastCombats,
+    visibleCells: vis,
+  };
+  aiRenderer.render(state);
 }
 
 // ============================================================
