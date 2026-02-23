@@ -9,6 +9,7 @@ export interface RenderState {
   currentPlayerId: number | null;
   highlightCells: Position[];
   combatCells: CombatResult[];
+  visibleCells: Set<string> | null;
 }
 
 export class Renderer {
@@ -67,10 +68,11 @@ export class Renderer {
     this.drawCombatHighlights(state.combatCells);
     this.drawSelectedCell(state.selectedCell);
     this.drawValidMoves(state.validMoves);
-    this.drawStacks(state.board);
+    this.drawStacks(state.board, state.visibleCells, state.currentPlayerId);
     this.drawOrders(state.orders);
     this.drawCombatLabels(state.combatCells);
-    this.drawCoordinates();
+    this.drawCoordinates(state.visibleCells);
+    this.drawFog(state.visibleCells);
   }
 
   private drawGrid(): void {
@@ -100,7 +102,7 @@ export class Renderer {
     }
   }
 
-  private drawCoordinates(): void {
+  private drawCoordinates(visibleCells: Set<string> | null): void {
     const { ctx, cellSize, offsetX, offsetY, cols, rows } = this;
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.font = `${Math.max(9, cellSize * 0.18)}px system-ui`;
@@ -108,6 +110,7 @@ export class Renderer {
     ctx.textBaseline = 'top';
     for (let y = 0; y < rows; y++) {
       for (let x = 0; x < cols; x++) {
+        if (visibleCells && !visibleCells.has(`${x},${y}`)) continue;
         ctx.fillText(`${x},${y}`, offsetX + x * cellSize + 3, offsetY + y * cellSize + 2);
       }
     }
@@ -205,12 +208,14 @@ export class Renderer {
     }
   }
 
-  private drawStacks(board: Board): void {
+  private drawStacks(board: Board, visibleCells: Set<string> | null, currentPlayerId: number | null): void {
     const { ctx, cellSize } = this;
     for (const pos of board.getOccupiedCells()) {
       const stacks = board.getStacks(pos);
       for (const stack of stacks) {
         if (!stack.alive) continue;
+        // Hide enemy stacks in fog
+        if (visibleCells && !visibleCells.has(`${pos.x},${pos.y}`) && stack.playerId !== currentPlayerId) continue;
         const { px, py } = this.cellToPixelCenter(pos);
         const radius = Math.min(cellSize * 0.35, 8 + Math.log2(stack.units + 1) * 4);
         const color = PLAYER_COLORS[stack.playerId] ?? '#888';
@@ -236,6 +241,18 @@ export class Renderer {
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
         ctx.fillText(String(stack.units), px, py);
+      }
+    }
+  }
+
+  private drawFog(visibleCells: Set<string> | null): void {
+    if (!visibleCells) return;
+    const { ctx, cellSize, offsetX, offsetY, cols, rows } = this;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    for (let y = 0; y < rows; y++) {
+      for (let x = 0; x < cols; x++) {
+        if (visibleCells.has(`${x},${y}`)) continue;
+        ctx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
       }
     }
   }

@@ -50,6 +50,7 @@ export interface GameConfig {
   playerCount: number;
   startingUnits: number;
   seed?: number;
+  visionRadius: number;
 }
 
 export interface CombatResult {

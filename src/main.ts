@@ -1,13 +1,40 @@
 import { Game } from './engine/game';
-import { GamePhase, MoveOrder, CombatResult, PLAYER_COLORS, PLAYER_NAMES } from './engine/types';
+import { GamePhase, MoveOrder, CombatResult, PLAYER_COLORS, PLAYER_NAMES, Position, GameConfig } from './engine/types';
 import { Renderer, RenderState } from './ui/renderer';
 import { InputHandler } from './ui/input';
 import { Overlay } from './ui/overlay';
+import { getVisibleCells } from './engine/visibility';
+import { GameClient } from './net/client';
+import { deserializeBoard } from './net/serialization';
+import { BoardSnapshot, PlayerInfo, ServerMessage, TurnResolvedMsg } from './net/protocol';
+import { Board } from './engine/board';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const overlayEl = document.getElementById('overlay') as HTMLElement;
 const statusBar = document.getElementById('status-bar') as HTMLElement;
 const overlay = new Overlay(overlayEl);
+
+// ============================================================
+// Entry point: mode selection
+// ============================================================
+
+function showMainMenu(): void {
+  statusBar.innerHTML = '';
+  overlay.showModeSelect(
+    () => overlay.showSetup(startHotseatGame),
+    () => overlay.showOnlineLobby({
+      onCreate: onCreateRoom,
+      onJoin: onJoinRoom,
+      onBack: showMainMenu,
+    }),
+  );
+}
+
+showMainMenu();
+
+// ============================================================
+// Hot-seat mode (existing logic)
+// ============================================================
 
 let game: Game;
 let renderer: Renderer;
@@ -15,8 +42,10 @@ let input: InputHandler;
 let currentPlayerIndex = 0;
 let pendingOrders: MoveOrder[] = [];
 let lastCombats: CombatResult[] = [];
+let selectedCell: Position | null = null;
+let validMoves: Position[] = [];
 
-function startGame(config: { cols: number; rows: number; playerCount: number; startingUnits: number }) {
+function startHotseatGame(config: { cols: number; rows: number; playerCount: number; startingUnits: number; visionRadius: number }) {
   game = new Game(config);
   renderer = new Renderer(canvas, config.cols, config.rows);
   input = new InputHandler(canvas, renderer);
@@ -29,7 +58,7 @@ function startGame(config: { cols: number; rows: number; playerCount: number; st
 
   window.addEventListener('resize', () => {
     renderer.resize();
-    renderBoard();
+    renderHotseatBoard();
   });
 
   game.events.on('turn-resolved', (result) => {
@@ -44,49 +73,74 @@ function startGame(config: { cols: number; rows: number; playerCount: number; st
     lastCombats = turnResult.combats;
 
     if (turnResult.winnerId !== null) {
-      renderBoard();
-      updateStatusBar();
+      renderHotseatBoard();
+      updateHotseatStatusBar();
       overlay.showVictory(turnResult.winnerId, () => {
         statusBar.innerHTML = '';
-        overlay.showSetup(startGame);
+        showMainMenu();
       });
       return;
     }
 
-    const lines: string[] = [];
-    if (turnResult.combats.length > 0) {
-      for (const c of turnResult.combats) {
-        const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
-        const loserNames = c.participants
-          .filter((p) => p.playerId !== c.winnerId)
-          .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
-          .join(', ');
-        lines.push(
-          `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
+    updateHotseatStatusBar();
+
+    const activePlayers = game.getActivePlayers();
+    let resPlayerIndex = 0;
+
+    function showResolutionForNextPlayer() {
+      if (resPlayerIndex >= activePlayers.length) {
+        lastCombats = [];
+        startHotseatTurn();
+        return;
+      }
+
+      const player = activePlayers[resPlayerIndex];
+      resPlayerIndex++;
+
+      overlay.showResolutionPassScreen(player.id, turnResult.turnNumber, () => {
+        const visible = getVisibleCells(game.board, player.id, game.config.visionRadius);
+
+        const visibleCombats = turnResult.combats.filter((c) =>
+          visible.has(`${c.position.x},${c.position.y}`),
         );
-      }
-    } else {
-      lines.push('В этом ходу боев не было.');
-    }
-    if (turnResult.eliminations.length > 0) {
-      for (const pid of turnResult.eliminations) {
-        lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
-      }
+        lastCombats = visibleCombats;
+
+        const lines: string[] = [];
+        if (visibleCombats.length > 0) {
+          for (const c of visibleCombats) {
+            const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
+            const loserNames = c.participants
+              .filter((p) => p.playerId !== c.winnerId)
+              .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
+              .join(', ');
+            lines.push(
+              `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
+            );
+          }
+        } else {
+          lines.push('В этом ходу боев не было.');
+        }
+        if (turnResult.eliminations.length > 0) {
+          for (const pid of turnResult.eliminations) {
+            lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
+          }
+        }
+
+        renderHotseatBoard(false, player.id, undefined, visible);
+        overlay.showResolution(lines.join('\n'), () => {
+          showResolutionForNextPlayer();
+        });
+      });
     }
 
-    renderBoard();
-    updateStatusBar();
-    overlay.showResolution(lines.join('\n'), () => {
-      lastCombats = [];
-      startTurn();
-    });
+    showResolutionForNextPlayer();
   });
 
-  updateStatusBar();
-  startTurn();
+  updateHotseatStatusBar();
+  startHotseatTurn();
 }
 
-function updateStatusBar() {
+function updateHotseatStatusBar() {
   if (!game) { statusBar.innerHTML = ''; return; }
   const turnHtml = `<span class="status-turn">Ход ${game.turnNumber}</span>`;
   const playersHtml = game.players
@@ -103,15 +157,15 @@ function updateStatusBar() {
   statusBar.innerHTML = turnHtml + playersHtml;
 }
 
-function startTurn() {
+function startHotseatTurn() {
   const activePlayers = game.getActivePlayers();
   currentPlayerIndex = 0;
-  updateStatusBar();
+  updateHotseatStatusBar();
   showPassScreen(activePlayers[currentPlayerIndex].id);
 }
 
 function showPassScreen(playerId: number) {
-  renderBoard(true);
+  renderHotseatBoard(true);
   overlay.showPassScreen(playerId, game.turnNumber, () => {
     startPlayerOrderPhase(playerId);
   });
@@ -119,12 +173,16 @@ function showPassScreen(playerId: number) {
 
 function startPlayerOrderPhase(playerId: number) {
   pendingOrders = [];
-  renderBoard(false, playerId, pendingOrders);
+  selectedCell = null;
+  validMoves = [];
+  renderHotseatBoard(false, playerId, pendingOrders);
 
   overlay.startOrderInput(
     playerId,
     game.board,
     (orders) => {
+      selectedCell = null;
+      validMoves = [];
       game.submitOrders({ playerId, moves: orders });
 
       if (game.phase === GamePhase.ORDER_INPUT) {
@@ -137,18 +195,28 @@ function startPlayerOrderPhase(playerId: number) {
     },
     (orders) => {
       pendingOrders = orders;
-      renderBoard(false, playerId, pendingOrders);
+      renderHotseatBoard(false, playerId, pendingOrders);
+    },
+    (state) => {
+      selectedCell = state.selectedCell;
+      validMoves = state.validMoves;
+      renderHotseatBoard(false, playerId, pendingOrders);
     },
   );
 }
 
-function renderBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrder[]) {
+function renderHotseatBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrder[], visibleCells?: Set<string>) {
   if (!renderer || !game) return;
 
   if (hidden) {
     const ctx = canvas.getContext('2d')!;
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     return;
+  }
+
+  let vis: Set<string> | null = visibleCells ?? null;
+  if (!vis && currentPlayerId !== undefined) {
+    vis = getVisibleCells(game.board, currentPlayerId, game.config.visionRadius);
   }
 
   const highlightCells =
@@ -159,14 +227,308 @@ function renderBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrde
   const state: RenderState = {
     board: game.board,
     orders: orders ?? [],
-    selectedCell: null,
-    validMoves: [],
+    selectedCell,
+    validMoves,
     currentPlayerId: currentPlayerId ?? null,
     highlightCells,
     combatCells: lastCombats,
+    visibleCells: vis,
   };
   renderer.render(state);
 }
 
-// Start with setup screen
-overlay.showSetup(startGame);
+// ============================================================
+// Online mode
+// ============================================================
+
+let netClient: GameClient | null = null;
+let netRenderer: Renderer | null = null;
+let netInput: InputHandler | null = null;
+let netPlayerId = -1;
+let netConfig: Omit<GameConfig, 'seed'> | null = null;
+let netBoard: Board | null = null;
+let netPlayers: PlayerInfo[] = [];
+let netPendingOrders: MoveOrder[] = [];
+let netSelectedCell: Position | null = null;
+let netValidMoves: Position[] = [];
+let netCombats: CombatResult[] = [];
+let netVisibleKeys: Set<string> | null = null;
+let netOrdersSubmitted = false;
+
+function getWsUrl(): string {
+  const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
+  return `${protocol}//${location.host}/ws`;
+}
+
+async function onCreateRoom(config: Omit<GameConfig, 'seed'>, playerName: string): Promise<void> {
+  try {
+    netClient = new GameClient();
+    await netClient.connect(getWsUrl());
+    setupNetworkHandlers();
+    netClient.createRoom(config, playerName);
+  } catch {
+    overlay.showError('Не удалось подключиться к серверу', showMainMenu);
+  }
+}
+
+async function onJoinRoom(roomCode: string, playerName: string): Promise<void> {
+  try {
+    netClient = new GameClient();
+    await netClient.connect(getWsUrl());
+    setupNetworkHandlers();
+    netClient.joinRoom(roomCode, playerName);
+  } catch {
+    overlay.showError('Не удалось подключиться к серверу', showMainMenu);
+  }
+}
+
+function cleanupOnline(): void {
+  if (netClient) {
+    netClient.disconnect();
+    netClient = null;
+  }
+  netRenderer = null;
+  netInput = null;
+  netBoard = null;
+  netPlayers = [];
+  netPendingOrders = [];
+  netCombats = [];
+  netVisibleKeys = null;
+  netOrdersSubmitted = false;
+}
+
+function setupNetworkHandlers(): void {
+  if (!netClient) return;
+
+  netClient.on('room-created', (msg) => {
+    const m = msg as ServerMessage & { type: 'room-created' };
+    netPlayerId = m.playerId;
+    netConfig = m.config;
+    const myInfo: PlayerInfo = {
+      id: m.playerId,
+      name: 'Я',
+      color: PLAYER_COLORS[m.playerId] ?? '#888',
+      connected: true,
+      eliminated: false,
+    };
+    overlay.showWaitingRoom(m.roomCode, [myInfo], m.config, () => {
+      cleanupOnline();
+      showMainMenu();
+    });
+  });
+
+  netClient.on('room-joined', (msg) => {
+    const m = msg as ServerMessage & { type: 'room-joined' };
+    netPlayerId = m.playerId;
+    netConfig = m.config;
+    netPlayers = m.players;
+    overlay.showWaitingRoom(m.roomCode, m.players, m.config, () => {
+      cleanupOnline();
+      showMainMenu();
+    });
+  });
+
+  netClient.on('player-joined', (msg) => {
+    const m = msg as ServerMessage & { type: 'player-joined' };
+    netPlayers = m.players;
+    overlay.updateWaitingRoom(m.players);
+  });
+
+  netClient.on('game-started', (msg) => {
+    const m = msg as ServerMessage & { type: 'game-started' };
+    netPlayerId = m.playerId;
+    netConfig = m.config;
+    netPlayers = m.players;
+    startOnlineGame(m.board);
+  });
+
+  netClient.on('turn-start', (msg) => {
+    const m = msg as ServerMessage & { type: 'turn-start' };
+    netPlayers = m.players;
+    netOrdersSubmitted = false;
+    onNetTurnStart(m.turnNumber, m.board);
+  });
+
+  netClient.on('orders-accepted', () => {
+    netOrdersSubmitted = true;
+  });
+
+  netClient.on('waiting-for-players', (msg) => {
+    const m = msg as ServerMessage & { type: 'waiting-for-players' };
+    if (netOrdersSubmitted) {
+      overlay.showWaitingForOrders(m.pending, netPlayers);
+    }
+  });
+
+  netClient.on('turn-resolved', (msg) => {
+    onNetTurnResolved(msg as TurnResolvedMsg);
+  });
+
+  netClient.on('player-disconnected', (msg) => {
+    const m = msg as ServerMessage & { type: 'player-disconnected' };
+    const player = netPlayers.find((p) => p.id === m.playerId);
+    if (player) player.connected = false;
+    updateOnlineStatusBar();
+  });
+
+  netClient.on('error', (msg) => {
+    const m = msg as ServerMessage & { type: 'error' };
+    overlay.showError(m.message, () => {
+      cleanupOnline();
+      showMainMenu();
+    });
+  });
+}
+
+function startOnlineGame(snapshot: BoardSnapshot): void {
+  if (!netConfig) return;
+
+  overlay.clear();
+  netRenderer = new Renderer(canvas, netConfig.cols, netConfig.rows);
+  netInput = new InputHandler(canvas, netRenderer);
+
+  netInput.onCellClick((pos) => {
+    if (netOrdersSubmitted || !netBoard) return;
+    overlay.onCellSelected(pos, netBoard);
+  });
+
+  window.addEventListener('resize', () => {
+    netRenderer?.resize();
+    renderOnlineBoard();
+  });
+
+  applySnapshot(snapshot);
+  updateOnlineStatusBar();
+}
+
+function onNetTurnStart(turnNumber: number, snapshot: BoardSnapshot): void {
+  applySnapshot(snapshot);
+  netCombats = [];
+  updateOnlineStatusBar();
+  startOnlineOrderInput();
+}
+
+function startOnlineOrderInput(): void {
+  netPendingOrders = [];
+  netSelectedCell = null;
+  netValidMoves = [];
+  netOrdersSubmitted = false;
+
+  if (!netBoard) return;
+
+  overlay.clear();
+  overlay.startOrderInput(
+    netPlayerId,
+    netBoard,
+    (orders) => {
+      netSelectedCell = null;
+      netValidMoves = [];
+      netClient?.submitOrders(orders);
+      renderOnlineBoard();
+    },
+    (orders) => {
+      netPendingOrders = orders;
+      renderOnlineBoard();
+    },
+    (state) => {
+      netSelectedCell = state.selectedCell;
+      netValidMoves = state.validMoves;
+      renderOnlineBoard();
+    },
+  );
+
+  renderOnlineBoard();
+}
+
+function onNetTurnResolved(result: TurnResolvedMsg): void {
+  if (!netConfig) return;
+
+  netCombats = result.combats;
+  applySnapshot(result.board);
+
+  const lines: string[] = [];
+  if (result.combats.length > 0) {
+    for (const c of result.combats) {
+      const winnerName = netPlayers.find((p) => p.id === c.winnerId)?.name ?? `Игрок ${c.winnerId + 1}`;
+      const loserNames = c.participants
+        .filter((p) => p.playerId !== c.winnerId)
+        .map((p) => {
+          const pName = netPlayers.find((pl) => pl.id === p.playerId)?.name ?? `И${p.playerId + 1}`;
+          return `${pName}(${p.unitsBefore})`;
+        })
+        .join(', ');
+      lines.push(
+        `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
+      );
+    }
+  } else {
+    lines.push('В этом ходу боев не было.');
+  }
+  if (result.eliminations.length > 0) {
+    for (const pid of result.eliminations) {
+      const pName = netPlayers.find((p) => p.id === pid)?.name ?? `Игрок ${pid + 1}`;
+      lines.push(`${pName} уничтожен!`);
+    }
+  }
+
+  for (const pid of result.eliminations) {
+    const p = netPlayers.find((pl) => pl.id === pid);
+    if (p) p.eliminated = true;
+  }
+
+  updateOnlineStatusBar();
+  renderOnlineBoard();
+
+  if (result.winnerId !== null) {
+    overlay.showVictory(result.winnerId, () => {
+      cleanupOnline();
+      showMainMenu();
+    });
+    return;
+  }
+
+  overlay.showResolution(lines.join('\n'), () => {
+    // Start next turn's order input using board from turn-resolved
+    startOnlineOrderInput();
+  });
+}
+
+function applySnapshot(snapshot: BoardSnapshot): void {
+  if (!netConfig) return;
+  netBoard = deserializeBoard(snapshot, netConfig.cols, netConfig.rows);
+  netVisibleKeys = new Set(snapshot.visibleKeys);
+}
+
+function updateOnlineStatusBar(): void {
+  if (!netConfig) { statusBar.innerHTML = ''; return; }
+  const playersHtml = netPlayers
+    .map((p) => {
+      const units = netBoard ? netBoard.getPlayerTotalUnits(p.id) : 0;
+      const cls = p.eliminated ? 'status-player status-eliminated' : 'status-player';
+      const disconnectedMark = p.connected ? '' : ' (!)';
+      return `<span class="${cls}">
+        <span class="status-dot" style="background:${p.color}"></span>
+        ${p.name}${p.id === netPlayerId ? ' (вы)' : ''}${disconnectedMark}: ${units}
+      </span>`;
+    })
+    .join('');
+  statusBar.innerHTML = `<span class="status-turn">Сетевая</span>` + playersHtml;
+}
+
+function renderOnlineBoard(): void {
+  if (!netRenderer || !netBoard) return;
+
+  const highlightCells = netBoard.getPlayerStacks(netPlayerId).map((s) => s.pos);
+
+  const state: RenderState = {
+    board: netBoard,
+    orders: netPendingOrders,
+    selectedCell: netSelectedCell,
+    validMoves: netValidMoves,
+    currentPlayerId: netPlayerId,
+    highlightCells,
+    combatCells: netCombats,
+    visibleCells: netVisibleKeys,
+  };
+  netRenderer.render(state);
+}
