@@ -2,7 +2,7 @@ import { describe, it, expect } from 'vitest';
 import { resolveTurn } from '../src/engine/resolver';
 import { Board } from '../src/engine/board';
 import { Stack } from '../src/engine/stack';
-import { Direction, TurnOrders } from '../src/engine/types';
+import { Direction, TurnOrders, NEUTRAL_PLAYER_ID } from '../src/engine/types';
 import { RNG } from '../src/util/random';
 
 function makeBoard(cols: number, rows: number, stacks: { pos: { x: number; y: number }; playerId: number; units: number }[]): Board {
@@ -143,5 +143,85 @@ describe('resolveTurn', () => {
     ];
     const result = resolveTurn(board, orders, new RNG(42), 1);
     expect(result.winnerId).toBeNull();
+  });
+
+  it('absorbs neutral stack when player moves onto it', () => {
+    const board = makeBoard(5, 5, [
+      { pos: { x: 0, y: 0 }, playerId: 0, units: 10 },
+      { pos: { x: 1, y: 0 }, playerId: NEUTRAL_PLAYER_ID, units: 3 },
+    ]);
+    const orders: TurnOrders[] = [
+      { playerId: 0, moves: [{ playerId: 0, from: { x: 0, y: 0 }, unitCount: 10, direction: Direction.E }] },
+    ];
+    const result = resolveTurn(board, orders, new RNG(42), 1);
+    // Player absorbs neutral: 10 + 3 = 13
+    const stack = board.getPlayerStack({ x: 1, y: 0 }, 0);
+    expect(stack).toBeDefined();
+    expect(stack!.units).toBe(13);
+    expect(stack!.playerId).toBe(0);
+    // Neutral must be gone
+    const neutralStack = board.getPlayerStack({ x: 1, y: 0 }, NEUTRAL_PLAYER_ID);
+    expect(neutralStack).toBeUndefined();
+    // No combat should have occurred
+    expect(result.combats).toHaveLength(0);
+  });
+
+  it('absorbs neutral after combat on same cell', () => {
+    const board = makeBoard(5, 5, [
+      { pos: { x: 0, y: 0 }, playerId: 0, units: 10 },
+      { pos: { x: 2, y: 0 }, playerId: 1, units: 5 },
+      { pos: { x: 1, y: 0 }, playerId: NEUTRAL_PLAYER_ID, units: 2 },
+    ]);
+    const orders: TurnOrders[] = [
+      { playerId: 0, moves: [{ playerId: 0, from: { x: 0, y: 0 }, unitCount: 10, direction: Direction.E }] },
+      { playerId: 1, moves: [{ playerId: 1, from: { x: 2, y: 0 }, unitCount: 5, direction: Direction.W }] },
+    ];
+    const result = resolveTurn(board, orders, new RNG(42), 1);
+    // Combat between player 0 and 1, winner absorbs neutral
+    expect(result.combats).toHaveLength(1);
+    const winnerId = result.combats[0].winnerId;
+    const winnerStack = board.getPlayerStack({ x: 1, y: 0 }, winnerId);
+    expect(winnerStack).toBeDefined();
+    // Winner should have combat result + neutral units
+    expect(winnerStack!.units).toBe(result.combats[0].unitsAfter + 2);
+    // Neutral must be gone
+    expect(board.getPlayerStack({ x: 1, y: 0 }, NEUTRAL_PLAYER_ID)).toBeUndefined();
+  });
+
+  it('small scout loses to neutral - neutral stays, player stack gone', () => {
+    // This tests what happens when a small force meets a neutral
+    // In the new code: neutrals are NOT combatants, they are absorbed
+    const board = makeBoard(5, 5, [
+      { pos: { x: 0, y: 0 }, playerId: 1, units: 1 },
+      { pos: { x: 1, y: 0 }, playerId: NEUTRAL_PLAYER_ID, units: 3 },
+    ]);
+    const orders: TurnOrders[] = [
+      { playerId: 1, moves: [{ playerId: 1, from: { x: 0, y: 0 }, unitCount: 1, direction: Direction.E }] },
+    ];
+    const result = resolveTurn(board, orders, new RNG(42), 1);
+    // No combat - neutrals are excluded
+    expect(result.combats).toHaveLength(0);
+    // Player stack absorbs neutral: 1 + 3 = 4
+    const stack = board.getPlayerStack({ x: 1, y: 0 }, 1);
+    expect(stack).toBeDefined();
+    expect(stack!.units).toBe(4);
+    expect(stack!.playerId).toBe(1);
+    // Neutral gone
+    expect(board.getPlayerStack({ x: 1, y: 0 }, NEUTRAL_PLAYER_ID)).toBeUndefined();
+  });
+
+  it('neutral not absorbed if no player on cell', () => {
+    const board = makeBoard(5, 5, [
+      { pos: { x: 0, y: 0 }, playerId: 0, units: 10 },
+      { pos: { x: 2, y: 2 }, playerId: NEUTRAL_PLAYER_ID, units: 3 },
+    ]);
+    const orders: TurnOrders[] = [
+      { playerId: 0, moves: [] },
+    ];
+    const result = resolveTurn(board, orders, new RNG(42), 1);
+    // Neutral should still be there
+    const neutral = board.getPlayerStack({ x: 2, y: 2 }, NEUTRAL_PLAYER_ID);
+    expect(neutral).toBeDefined();
+    expect(neutral!.units).toBe(3);
   });
 });

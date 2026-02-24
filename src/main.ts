@@ -111,31 +111,13 @@ function startHotseatGame(config: { cols: number; rows: number; playerCount: num
         );
         lastCombats = visibleCombats;
 
-        const lines: string[] = [];
-        if (visibleCombats.length > 0) {
-          for (const c of visibleCombats) {
-            const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
-            const loserNames = c.participants
-              .filter((p) => p.playerId !== c.winnerId)
-              .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
-              .join(', ');
-            lines.push(
-              `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
-            );
-          }
-        } else {
-          lines.push('В этом ходу боев не было.');
-        }
-        if (turnResult.eliminations.length > 0) {
-          for (const pid of turnResult.eliminations) {
-            lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
-          }
-        }
-
         renderHotseatBoard(false, player.id, undefined, visible);
-        overlay.showResolution(lines.join('\n'), () => {
-          showResolutionForNextPlayer();
-        });
+        overlay.showCombatResults(
+          visibleCombats,
+          turnResult.eliminations,
+          (id) => PLAYER_NAMES[id] ?? `Игрок ${id + 1}`,
+          () => showResolutionForNextPlayer(),
+        );
       });
     }
 
@@ -262,6 +244,7 @@ let aiGame: Game;
 let aiRenderer: Renderer;
 let aiInput: InputHandler;
 let aiRouteManager: RouteManager;
+let aiDebugMode = false;
 let aiDifficulty: AiDifficulty = 'medium';
 let aiPendingOrders: MoveOrder[] = [];
 let aiLastCombats: CombatResult[] = [];
@@ -273,7 +256,9 @@ function startAiGame(
   config: { cols: number; rows: number; startingUnits: number; visionRadius: number },
   difficulty: AiDifficulty,
   aiCount: number,
+  debugMode = false,
 ) {
+  aiDebugMode = debugMode;
   const playerCount = 1 + aiCount;
   const gameConfig: GameConfig = { ...config, playerCount };
   aiGame = new Game(gameConfig);
@@ -319,41 +304,25 @@ function startAiGame(
 
     // Show resolution to human player (id=0) - no pass screen needed
     const humanId = 0;
-    const visible = getVisibleCells(aiGame.board, humanId, aiGame.config.visionRadius);
+    const visible = aiDebugMode ? null : getVisibleCells(aiGame.board, humanId, aiGame.config.visionRadius);
 
-    const visibleCombats = turnResult.combats.filter((c) =>
-      visible.has(`${c.position.x},${c.position.y}`),
-    );
+    const visibleCombats = visible
+      ? turnResult.combats.filter((c) => visible.has(`${c.position.x},${c.position.y}`))
+      : turnResult.combats;
     aiLastCombats = visibleCombats;
-
-    const lines: string[] = [];
-    if (visibleCombats.length > 0) {
-      for (const c of visibleCombats) {
-        const winnerName = PLAYER_NAMES[c.winnerId] ?? `Игрок ${c.winnerId + 1}`;
-        const loserNames = c.participants
-          .filter((p) => p.playerId !== c.winnerId)
-          .map((p) => `${PLAYER_NAMES[p.playerId] ?? `И${p.playerId + 1}`}(${p.unitsBefore})`)
-          .join(', ');
-        lines.push(
-          `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
-        );
-      }
-    } else {
-      lines.push('В этом ходу боев не было.');
-    }
-    if (turnResult.eliminations.length > 0) {
-      for (const pid of turnResult.eliminations) {
-        lines.push(`${PLAYER_NAMES[pid] ?? `Игрок ${pid + 1}`} уничтожен!`);
-      }
-    }
 
     aiShowingResolution = true;
     renderAiBoard(false, humanId, undefined, visible);
-    overlay.showResolution(lines.join('\n'), () => {
-      aiShowingResolution = false;
-      aiLastCombats = [];
-      startAiTurn();
-    });
+    overlay.showCombatResults(
+      visibleCombats,
+      turnResult.eliminations,
+      (id) => PLAYER_NAMES[id] ?? `Игрок ${id + 1}`,
+      () => {
+        aiShowingResolution = false;
+        aiLastCombats = [];
+        startAiTurn();
+      },
+    );
   });
 
   updateAiStatusBar();
@@ -363,7 +332,8 @@ function startAiGame(
 function updateAiStatusBar() {
   if (!aiGame) { statusBar.innerHTML = ''; return; }
   const diffLabel = aiDifficulty === 'easy' ? 'Легкий' : aiDifficulty === 'medium' ? 'Средний' : 'Сложный';
-  const turnHtml = `<span class="status-turn">Ход ${aiGame.turnNumber} (AI: ${diffLabel})</span>`;
+  const debugLabel = aiDebugMode ? ' | Отладка' : '';
+  const turnHtml = `<span class="status-turn">Ход ${aiGame.turnNumber} (AI: ${diffLabel}${debugLabel})</span>`;
   const playersHtml = aiGame.players
     .map((p) => {
       const units = aiGame.board.getPlayerTotalUnits(p.id);
@@ -412,15 +382,38 @@ function startAiPlayerOrderPhase() {
       aiValidMoves = [];
       aiPendingOrders = [];
 
-      // Submit human orders
-      aiGame.submitOrders({ playerId: humanId, moves: orders });
-
-      // If game is still in ORDER_INPUT phase, submit AI orders
+      // Collect AI orders before submitting
+      const allAiOrders: MoveOrder[] = [];
       if (aiGame.phase === GamePhase.ORDER_INPUT) {
         for (const p of aiGame.getActivePlayers()) {
           if (p.id === humanId) continue;
           const aiOrders = generateOrders(aiGame.board, p.id, aiDifficulty, aiGame.config);
-          aiGame.submitOrders({ playerId: p.id, moves: aiOrders });
+          allAiOrders.push(...aiOrders);
+        }
+      }
+
+      if (aiDebugMode && allAiOrders.length > 0) {
+        // Show AI orders on the board, then submit on continue
+        renderAiBoard(false, humanId, [...orders, ...allAiOrders]);
+        overlay.showResolution('Планируемые ходы AI', () => {
+          aiGame.submitOrders({ playerId: humanId, moves: orders });
+          if (aiGame.phase === GamePhase.ORDER_INPUT) {
+            for (const p of aiGame.getActivePlayers()) {
+              if (p.id === humanId) continue;
+              const pOrders = allAiOrders.filter((o) => o.playerId === p.id);
+              aiGame.submitOrders({ playerId: p.id, moves: pOrders });
+            }
+          }
+        });
+      } else {
+        // Normal flow: submit all immediately
+        aiGame.submitOrders({ playerId: humanId, moves: orders });
+        if (aiGame.phase === GamePhase.ORDER_INPUT) {
+          for (const p of aiGame.getActivePlayers()) {
+            if (p.id === humanId) continue;
+            const pOrders = allAiOrders.filter((o) => o.playerId === p.id);
+            aiGame.submitOrders({ playerId: p.id, moves: pOrders });
+          }
         }
       }
     },
@@ -437,7 +430,7 @@ function startAiPlayerOrderPhase() {
   );
 }
 
-function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrder[], visibleCells?: Set<string>) {
+function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOrder[], visibleCells?: Set<string> | null) {
   if (!aiRenderer || !aiGame) return;
 
   if (hidden) {
@@ -447,7 +440,9 @@ function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOr
   }
 
   const pid = currentPlayerId ?? 0;
-  const vis: Set<string> = visibleCells ?? getVisibleCells(aiGame.board, pid, aiGame.config.visionRadius);
+  const vis: Set<string> | null = aiDebugMode
+    ? null
+    : (visibleCells !== undefined ? visibleCells : getVisibleCells(aiGame.board, pid, aiGame.config.visionRadius));
 
   const highlightCells = aiGame.board.getPlayerStacks(pid).map((s) => s.pos);
 
@@ -681,31 +676,6 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
   netCombats = result.combats;
   applySnapshot(result.board);
 
-  const lines: string[] = [];
-  if (result.combats.length > 0) {
-    for (const c of result.combats) {
-      const winnerName = netPlayers.find((p) => p.id === c.winnerId)?.name ?? `Игрок ${c.winnerId + 1}`;
-      const loserNames = c.participants
-        .filter((p) => p.playerId !== c.winnerId)
-        .map((p) => {
-          const pName = netPlayers.find((pl) => pl.id === p.playerId)?.name ?? `И${p.playerId + 1}`;
-          return `${pName}(${p.unitsBefore})`;
-        })
-        .join(', ');
-      lines.push(
-        `Бой (${c.position.x},${c.position.y}): ${winnerName}(${c.participants.find((p) => p.playerId === c.winnerId)!.unitsBefore}) vs ${loserNames} - ${winnerName} побеждает, осталось ${c.unitsAfter}`,
-      );
-    }
-  } else {
-    lines.push('В этом ходу боев не было.');
-  }
-  if (result.eliminations.length > 0) {
-    for (const pid of result.eliminations) {
-      const pName = netPlayers.find((p) => p.id === pid)?.name ?? `Игрок ${pid + 1}`;
-      lines.push(`${pName} уничтожен!`);
-    }
-  }
-
   for (const pid of result.eliminations) {
     const p = netPlayers.find((pl) => pl.id === pid);
     if (p) p.eliminated = true;
@@ -722,10 +692,12 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
     return;
   }
 
-  overlay.showResolution(lines.join('\n'), () => {
-    // Start next turn's order input using board from turn-resolved
-    startOnlineOrderInput();
-  });
+  overlay.showCombatResults(
+    result.combats,
+    result.eliminations,
+    (id) => netPlayers.find((p) => p.id === id)?.name ?? `Игрок ${id + 1}`,
+    () => startOnlineOrderInput(),
+  );
 }
 
 function applySnapshot(snapshot: BoardSnapshot): void {

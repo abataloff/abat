@@ -1,5 +1,5 @@
 import { Board } from './board';
-import { Direction, DIRECTION_DELTA, GameConfig, MoveOrder, Position } from './types';
+import { Direction, DIRECTION_DELTA, GameConfig, MoveOrder, NEUTRAL_PLAYER_ID, Position } from './types';
 import { getVisibleCells } from './visibility';
 
 export type AiDifficulty = 'easy' | 'medium' | 'hard';
@@ -86,12 +86,39 @@ function findVisibleEnemies(board: Board, playerId: number, visibleKeys: Set<str
     const key = `${cell.x},${cell.y}`;
     if (!visibleKeys.has(key)) continue;
     for (const stack of board.getStacks(cell)) {
-      if (stack.playerId !== playerId && stack.alive) {
+      if (stack.playerId !== playerId && stack.playerId !== NEUTRAL_PLAYER_ID && stack.alive) {
         enemies.push({ pos: cell, playerId: stack.playerId, units: stack.units });
       }
     }
   }
   return enemies;
+}
+
+function findVisibleNeutrals(board: Board, visibleKeys: Set<string>): EnemyInfo[] {
+  const neutrals: EnemyInfo[] = [];
+  for (const cell of board.getOccupiedCells()) {
+    const key = `${cell.x},${cell.y}`;
+    if (!visibleKeys.has(key)) continue;
+    for (const stack of board.getStacks(cell)) {
+      if (stack.playerId === NEUTRAL_PLAYER_ID && stack.alive) {
+        neutrals.push({ pos: cell, playerId: stack.playerId, units: stack.units });
+      }
+    }
+  }
+  return neutrals;
+}
+
+function findClosestNeutral(pos: Position, neutrals: EnemyInfo[]): { neutral: EnemyInfo; dist: number } | null {
+  let best: EnemyInfo | null = null;
+  let bestDist = Infinity;
+  for (const n of neutrals) {
+    const d = distance(pos, n.pos);
+    if (d < bestDist) {
+      bestDist = d;
+      best = n;
+    }
+  }
+  return best ? { neutral: best, dist: bestDist } : null;
 }
 
 // --- Easy ---
@@ -116,9 +143,20 @@ function generateMedium(board: Board, playerId: number, config: GameConfig): Mov
   const stacks = board.getPlayerStacks(playerId);
   const visibleKeys = getVisibleCells(board, playerId, config.visionRadius);
   const enemies = findVisibleEnemies(board, playerId, visibleKeys);
+  const neutrals = findVisibleNeutrals(board, visibleKeys);
   const center = getCenter(board);
 
   for (const { pos, stack } of stacks) {
+    // Grab adjacent neutral first (free units)
+    const nearNeutral = findClosestNeutral(pos, neutrals);
+    if (nearNeutral && nearNeutral.dist <= 1) {
+      const dir = directionToward(pos, nearNeutral.neutral.pos, board);
+      if (dir) {
+        orders.push({ playerId, from: pos, unitCount: stack.units, direction: dir });
+        continue;
+      }
+    }
+
     // Find closest visible enemy
     let closestEnemy: EnemyInfo | null = null;
     let closestDist = Infinity;
@@ -138,9 +176,10 @@ function generateMedium(board: Board, playerId: number, config: GameConfig): Mov
         orders.push({ playerId, from: pos, unitCount: stack.units, direction: dir });
       }
     } else {
-      // Move toward center
-      if (pos.x === center.x && pos.y === center.y) continue;
-      const dir = directionToward(pos, center, board);
+      // Prefer moving toward nearby neutral over center
+      const target = nearNeutral ? nearNeutral.neutral.pos : center;
+      if (pos.x === target.x && pos.y === target.y) continue;
+      const dir = directionToward(pos, target, board);
       if (dir) {
         orders.push({ playerId, from: pos, unitCount: stack.units, direction: dir });
       }
@@ -156,6 +195,7 @@ function generateHard(board: Board, playerId: number, config: GameConfig): MoveO
   const stacks = board.getPlayerStacks(playerId);
   const visibleKeys = getVisibleCells(board, playerId, config.visionRadius);
   const enemies = findVisibleEnemies(board, playerId, visibleKeys);
+  const neutrals = findVisibleNeutrals(board, visibleKeys);
   const center = getCenter(board);
 
   // Pre-compute closest ally for each stack
@@ -182,6 +222,17 @@ function generateHard(board: Board, playerId: number, config: GameConfig): MoveO
       if (d < closestDist) {
         closestDist = d;
         closestEnemy = e;
+      }
+    }
+
+    // Grab adjacent neutral first (free units, unless threatened)
+    const nearNeutral = findClosestNeutral(pos, neutrals);
+    const threatened = closestEnemy && closestDist <= 2 && closestEnemy.units > stack.units;
+    if (!threatened && nearNeutral && nearNeutral.dist <= 1) {
+      const dir = directionToward(pos, nearNeutral.neutral.pos, board);
+      if (dir) {
+        orders.push({ playerId, from: pos, unitCount: stack.units, direction: dir });
+        continue;
       }
     }
 
@@ -229,26 +280,31 @@ function generateHard(board: Board, playerId: number, config: GameConfig): MoveO
 
     // No enemies nearby: scout with small groups if large stack, otherwise move to center
     if (stack.units >= 8 && !closestEnemy) {
-      // Send a small scouting party
+      // Send scout toward nearest neutral if visible
       const scoutSize = Math.max(1, Math.floor(stack.units * 0.2));
-      const dir = randomDirection(pos, board);
-      if (dir) {
-        orders.push({ playerId, from: pos, unitCount: scoutSize, direction: dir });
+      const scoutTarget = nearNeutral ? directionToward(pos, nearNeutral.neutral.pos, board) : null;
+      const scoutDir = scoutTarget ?? randomDirection(pos, board);
+      if (scoutDir) {
+        orders.push({ playerId, from: pos, unitCount: scoutSize, direction: scoutDir });
       }
-      // Main body moves to center
+      // Main body moves to center or nearest neutral
       const remaining = stack.units - scoutSize;
-      if (remaining > 0 && !(pos.x === center.x && pos.y === center.y)) {
-        const centerDir = directionToward(pos, center, board);
-        if (centerDir && centerDir !== dir) {
-          orders.push({ playerId, from: pos, unitCount: remaining, direction: centerDir });
+      if (remaining > 0) {
+        const mainTarget = nearNeutral && !scoutTarget ? center : (nearNeutral ? nearNeutral.neutral.pos : center);
+        if (!(pos.x === mainTarget.x && pos.y === mainTarget.y)) {
+          const mainDir = directionToward(pos, mainTarget, board);
+          if (mainDir && mainDir !== scoutDir) {
+            orders.push({ playerId, from: pos, unitCount: remaining, direction: mainDir });
+          }
         }
       }
       continue;
     }
 
-    // Default: move toward center for positional advantage
-    if (pos.x === center.x && pos.y === center.y) continue;
-    const dir = directionToward(pos, center, board);
+    // Default: move toward nearest neutral or center
+    const defaultTarget = nearNeutral ? nearNeutral.neutral.pos : center;
+    if (pos.x === defaultTarget.x && pos.y === defaultTarget.y) continue;
+    const dir = directionToward(pos, defaultTarget, board);
     if (dir) {
       orders.push({ playerId, from: pos, unitCount: stack.units, direction: dir });
     }

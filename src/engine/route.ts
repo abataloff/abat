@@ -52,11 +52,6 @@ export class RouteManager {
     const path = computePath(from, to, board);
     if (path.length === 0) return null;
 
-    // Replace existing route from the same position
-    this.routes = this.routes.filter(
-      (r) => !(r.playerId === playerId && r.currentPos.x === from.x && r.currentPos.y === from.y),
-    );
-
     const route: Route = {
       id: this.nextId++,
       playerId,

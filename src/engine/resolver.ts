@@ -1,4 +1,4 @@
-import { TurnOrders, MoveOrder, TurnResult, MovementResult, CombatResult } from './types';
+import { TurnOrders, MoveOrder, TurnResult, MovementResult, CombatResult, NEUTRAL_PLAYER_ID } from './types';
 import { Board } from './board';
 import { Stack } from './stack';
 import { resolveCombat } from './combat';
@@ -88,18 +88,19 @@ export function resolveTurn(
   // Phase 4: Merge allied stacks
   board.mergeAlliedStacks();
 
-  // Phase 5: Resolve combat on each cell with multiple players
+  // Phase 5: Resolve combat on each cell with multiple players (excluding neutrals)
   const combats: CombatResult[] = [];
   for (const pos of board.getOccupiedCells()) {
     const stacks = board.getStacks(pos);
-    const playerIds = new Set(stacks.filter((s) => s.alive).map((s) => s.playerId));
+    const combatStacks = stacks.filter((s) => s.alive && s.playerId !== NEUTRAL_PLAYER_ID);
+    const playerIds = new Set(combatStacks.map((s) => s.playerId));
     if (playerIds.size < 2) continue;
 
-    const result = resolveCombat(pos, stacks, rng);
+    const result = resolveCombat(pos, combatStacks, rng);
     if (!result) continue;
 
     // Apply combat result: set winner units, eliminate losers
-    for (const s of stacks) {
+    for (const s of combatStacks) {
       if (s.playerId === result.winnerId) {
         s.units = result.unitsAfter;
       } else {
@@ -107,6 +108,24 @@ export function resolveTurn(
       }
     }
     combats.push(result);
+  }
+
+  // Phase 5.5: Absorb neutrals - if exactly one player on a cell with neutrals, transfer units
+  for (const pos of board.getOccupiedCells()) {
+    const stacks = board.getStacks(pos);
+    const neutrals = stacks.filter((s) => s.alive && s.playerId === NEUTRAL_PLAYER_ID);
+    if (neutrals.length === 0) continue;
+
+    const playerStacks = stacks.filter((s) => s.alive && s.playerId !== NEUTRAL_PLAYER_ID);
+    const playerIds = new Set(playerStacks.map((s) => s.playerId));
+    if (playerIds.size !== 1) continue;
+
+    // Transfer neutral units to the player's stack
+    const playerStack = playerStacks[0];
+    for (const n of neutrals) {
+      playerStack.units += n.units;
+      n.units = 0;
+    }
   }
 
   // Phase 6: Cleanup dead stacks

@@ -1,4 +1,4 @@
-import { Direction, MoveOrder, Position, PLAYER_COLORS, PLAYER_NAMES, DIRECTION_DELTA, GameConfig } from '../engine/types';
+import { Direction, MoveOrder, Position, PLAYER_COLORS, PLAYER_NAMES, DIRECTION_DELTA, GameConfig, CombatResult } from '../engine/types';
 import { AiDifficulty } from '../engine/ai';
 import { Board } from '../engine/board';
 import { PlayerInfo } from '../net/protocol';
@@ -157,6 +157,79 @@ export class Overlay {
       </div>
     `;
     document.getElementById('continue-btn')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      onContinue();
+    });
+  }
+
+  /** Show structured combat result cards */
+  showCombatResults(
+    combats: CombatResult[],
+    eliminations: number[],
+    getPlayerName: (id: number) => string,
+    onContinue: () => void,
+  ): void {
+    let html = `<div style="
+      position:absolute; bottom:0; left:0; right:0; display:flex; flex-direction:column;
+      align-items:center; padding:1.5rem; background:rgba(0,0,0,0.85);
+      z-index:50; gap:0.75rem; max-height:60vh; overflow-y:auto;
+    ">`;
+
+    if (combats.length === 0) {
+      html += `<div style="font-size:1.1rem; opacity:0.7;">В этом ходу боёв не было.</div>`;
+    } else {
+      for (const c of combats) {
+        html += `<div style="
+          background:rgba(255,255,255,0.07); border-radius:8px; padding:0.75rem 1rem;
+          width:100%; max-width:420px; border:1px solid rgba(255,255,255,0.1);
+        ">`;
+        html += `<div style="font-size:0.85rem; opacity:0.6; margin-bottom:0.4rem;">Бой (${c.position.x}, ${c.position.y})</div>`;
+
+        for (const p of c.participants) {
+          const color = PLAYER_COLORS[p.playerId] ?? '#888';
+          const name = getPlayerName(p.playerId);
+          const isWinner = p.playerId === c.winnerId;
+          const style = isWinner
+            ? 'font-weight:bold;'
+            : 'opacity:0.5;';
+          html += `<div style="display:flex; align-items:center; gap:0.4rem; margin:0.2rem 0; ${style}">`;
+          html += `<span style="width:10px; height:10px; border-radius:50%; background:${color}; display:inline-block; flex-shrink:0;"></span>`;
+          html += `<span>${name}</span>`;
+          html += `<span style="opacity:0.7; margin-left:auto;">${p.unitsBefore}</span>`;
+          html += `</div>`;
+        }
+
+        const winnerName = getPlayerName(c.winnerId);
+        const winnerColor = PLAYER_COLORS[c.winnerId] ?? '#888';
+        html += `<div style="margin-top:0.5rem; padding-top:0.4rem; border-top:1px solid rgba(255,255,255,0.1); font-size:0.9rem;">`;
+        html += `<span style="color:${winnerColor}; font-weight:bold;">${winnerName}</span> побеждает, осталось <b>${c.unitsAfter}</b>`;
+        html += `</div>`;
+        html += `</div>`;
+      }
+    }
+
+    for (const pid of eliminations) {
+      const name = getPlayerName(pid);
+      const color = PLAYER_COLORS[pid] ?? '#888';
+      html += `<div style="
+        background:rgba(230,57,70,0.15); border:1px solid rgba(230,57,70,0.4);
+        border-radius:8px; padding:0.6rem 1rem; width:100%; max-width:420px;
+        text-align:center; color:#E63946; font-weight:bold;
+      ">`;
+      html += `<span style="width:10px; height:10px; border-radius:50%; background:${color}; display:inline-block; vertical-align:middle; margin-right:0.3rem;"></span>`;
+      html += `${name} уничтожен!`;
+      html += `</div>`;
+    }
+
+    html += `<button id="combat-continue-btn" style="
+      padding:0.7rem 2rem; font-size:1.2rem; border:2px solid #eee;
+      background:transparent; color:#eee; cursor:pointer; border-radius:8px;
+      margin-top:0.25rem;
+    ">Далее</button>`;
+    html += `</div>`;
+
+    this.container.innerHTML = html;
+    document.getElementById('combat-continue-btn')!.addEventListener('click', () => {
       this.container.innerHTML = '';
       onContinue();
     });
@@ -768,7 +841,7 @@ export class Overlay {
   }
 
   /** Show AI game setup screen */
-  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number) => void, onBack: () => void): void {
+  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number, debugMode: boolean) => void, onBack: () => void): void {
     this.container.innerHTML = `
       <div style="
         position:absolute; inset:0; display:flex; flex-direction:column;
@@ -826,6 +899,12 @@ export class Overlay {
               color:#eee; border-radius:6px; text-align:center;
             ">
           </label>
+          <label style="display:flex; justify-content:space-between; align-items:center;">
+            <span>Режим отладки (без тумана):</span>
+            <input id="ai-debug" type="checkbox" style="
+              width:20px; height:20px; accent-color:#E76F51; cursor:pointer;
+            ">
+          </label>
           <button id="ai-start-btn" style="
             padding:1rem; font-size:1.3rem; border:2px solid #E9C46A;
             background:#E9C46A33; color:#eee; cursor:pointer; border-radius:8px;
@@ -845,8 +924,9 @@ export class Overlay {
       const aiDifficulty = (document.getElementById('ai-difficulty') as HTMLSelectElement).value as AiDifficulty;
       const startingUnits = parseInt((document.getElementById('ai-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('ai-vision') as HTMLInputElement).value) || 2;
+      const debugMode = (document.getElementById('ai-debug') as HTMLInputElement).checked;
       this.container.innerHTML = '';
-      onStart({ cols, rows, startingUnits, visionRadius }, aiDifficulty, aiCount);
+      onStart({ cols, rows, startingUnits, visionRadius }, aiDifficulty, aiCount, debugMode);
     });
     document.getElementById('ai-back-btn')!.addEventListener('click', () => {
       this.container.innerHTML = '';

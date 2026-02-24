@@ -82,14 +82,14 @@ describe('RouteManager', () => {
       expect(route!.unitCount).toBe(5);
     });
 
-    it('replaces existing route from same position', () => {
+    it('allows multiple routes from same position', () => {
       const board = makeBoard(8, 8, [{ pos: { x: 0, y: 0 }, playerId: 0, units: 10 }]);
       const rm = new RouteManager();
       rm.addRoute(0, { x: 0, y: 0 }, { x: 3, y: 0 }, 5, board);
       rm.addRoute(0, { x: 0, y: 0 }, { x: 0, y: 3 }, 3, board);
-      expect(rm.routes).toHaveLength(1);
-      expect(rm.routes[0].path[0]).toEqual({ x: 0, y: 1 });
-      expect(rm.routes[0].unitCount).toBe(3);
+      expect(rm.routes).toHaveLength(2);
+      expect(rm.routes[0].unitCount).toBe(5);
+      expect(rm.routes[1].unitCount).toBe(3);
     });
 
     it('returns null for same position target', () => {

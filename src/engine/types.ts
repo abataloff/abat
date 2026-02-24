@@ -76,5 +76,7 @@ export interface TurnResult {
   winnerId: number | null;
 }
 
+export const NEUTRAL_PLAYER_ID = -1;
+
 export const PLAYER_COLORS = ['#E63946', '#457B9D', '#2A9D8F', '#E9C46A'];
 export const PLAYER_NAMES = ['Красный', 'Синий', 'Бирюзовый', 'Золотой'];

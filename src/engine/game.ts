@@ -1,4 +1,4 @@
-import { GameConfig, GamePhase, TurnOrders, TurnResult } from './types';
+import { GameConfig, GamePhase, TurnOrders, TurnResult, NEUTRAL_PLAYER_ID } from './types';
 import { Board } from './board';
 import { Stack } from './stack';
 import { Player } from './player';
@@ -31,6 +31,23 @@ export class Game {
     const starts = Board.getStartPositions(config.cols, config.rows, config.playerCount);
     for (let i = 0; i < config.playerCount; i++) {
       this.board.addStack(starts[i], new Stack(i, config.startingUnits));
+    }
+
+    // Spawn neutral stacks on random empty cells
+    const occupiedKeys = new Set(starts.map((p) => `${p.x},${p.y}`));
+    const neutralCount = Math.floor(config.cols * config.rows * 0.15);
+    let placed = 0;
+    let attempts = 0;
+    while (placed < neutralCount && attempts < neutralCount * 10) {
+      attempts++;
+      const x = this.rng.nextInt(0, config.cols - 1);
+      const y = this.rng.nextInt(0, config.rows - 1);
+      const key = `${x},${y}`;
+      if (occupiedKeys.has(key)) continue;
+      occupiedKeys.add(key);
+      const units = this.rng.nextInt(1, 3);
+      this.board.addStack({ x, y }, new Stack(NEUTRAL_PLAYER_ID, units));
+      placed++;
     }
   }
 
