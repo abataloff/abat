@@ -1,0 +1,7 @@
+services:
+  abat:
+    image: ghcr.io/abataloff/abat:latest
+    container_name: abat
+    restart: unless-stopped
+    ports:
+      - "${PORT:-8051}:8051"

@@ -1,5 +1,7 @@
 node_modules/
 dist/
 dist-server/
-.playwright-mcp/
+.git
 .claude/
+.playwright-mcp/
+*.png

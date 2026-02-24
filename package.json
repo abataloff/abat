@@ -5,6 +5,9 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "build:server": "tsc -p tsconfig.server.json && echo '{\"type\":\"commonjs\"}' > dist-server/package.json",
+    "build:all": "npm run build && npm run build:server",
+    "start": "node dist-server/server/prod.js",
     "test": "vitest run",
     "test:watch": "vitest",
     "dev:server": "tsx src/server/server.ts"
