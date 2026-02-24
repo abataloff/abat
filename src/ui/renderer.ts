@@ -1,6 +1,13 @@
 import { Board } from '../engine/board';
 import { MoveOrder, DIRECTION_DELTA, PLAYER_COLORS, Position, CombatResult } from '../engine/types';
 
+export interface RoutePath {
+  playerId: number;
+  currentPos: Position;
+  path: Position[];
+  unitCount: number;
+}
+
 export interface RenderState {
   board: Board;
   orders: MoveOrder[];
@@ -10,6 +17,7 @@ export interface RenderState {
   highlightCells: Position[];
   combatCells: CombatResult[];
   visibleCells: Set<string> | null;
+  routePaths: RoutePath[];
 }
 
 export class Renderer {
@@ -70,6 +78,7 @@ export class Renderer {
     this.drawValidMoves(state.validMoves);
     this.drawStacks(state.board, state.visibleCells, state.currentPlayerId);
     this.drawOrders(state.orders);
+    this.drawRoutes(state.routePaths);
     this.drawCombatLabels(state.combatCells);
     this.drawCoordinates(state.visibleCells);
     this.drawFog(state.visibleCells);
@@ -81,12 +90,12 @@ export class Renderer {
       for (let x = 0; x < cols; x++) {
         const px = offsetX + x * cellSize;
         const py = offsetY + y * cellSize;
-        ctx.fillStyle = (x + y) % 2 === 0 ? '#16213e' : '#1a1a2e';
+        ctx.fillStyle = (x + y) % 2 === 0 ? '#1b2a4a' : '#0f1524';
         ctx.fillRect(px, py, cellSize, cellSize);
       }
     }
 
-    ctx.strokeStyle = '#2a2a4a';
+    ctx.strokeStyle = '#2e3d5e';
     ctx.lineWidth = 1;
     for (let x = 0; x <= cols; x++) {
       ctx.beginPath();
@@ -253,6 +262,63 @@ export class Renderer {
       for (let x = 0; x < cols; x++) {
         if (visibleCells.has(`${x},${y}`)) continue;
         ctx.fillRect(offsetX + x * cellSize, offsetY + y * cellSize, cellSize, cellSize);
+      }
+    }
+  }
+
+  private drawRoutes(routes: RoutePath[]): void {
+    const { ctx, cellSize } = this;
+
+    for (const route of routes) {
+      const color = PLAYER_COLORS[route.playerId] ?? '#888';
+      const points = [route.currentPos, ...route.path];
+
+      // Dashed line through all waypoints
+      ctx.save();
+      ctx.setLineDash([6, 4]);
+      ctx.strokeStyle = color + '88';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      const start = this.cellToPixelCenter(points[0]);
+      ctx.moveTo(start.px, start.py);
+      for (let i = 1; i < points.length; i++) {
+        const p = this.cellToPixelCenter(points[i]);
+        ctx.lineTo(p.px, p.py);
+      }
+      ctx.stroke();
+      ctx.restore();
+
+      // Small dots on each intermediate waypoint
+      for (let i = 1; i < points.length - 1; i++) {
+        const p = this.cellToPixelCenter(points[i]);
+        ctx.beginPath();
+        ctx.arc(p.px, p.py, 3, 0, Math.PI * 2);
+        ctx.fillStyle = color + 'aa';
+        ctx.fill();
+      }
+
+      // Circle marker on final point
+      if (points.length >= 2) {
+        const final = this.cellToPixelCenter(points[points.length - 1]);
+        ctx.beginPath();
+        ctx.arc(final.px, final.py, Math.max(6, cellSize * 0.12), 0, Math.PI * 2);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = 2;
+        ctx.stroke();
+        ctx.fillStyle = color + '44';
+        ctx.fill();
+
+        // Unit count label near destination
+        const label = String(route.unitCount);
+        ctx.font = `bold ${Math.max(9, cellSize * 0.18)}px system-ui`;
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'top';
+        const metrics = ctx.measureText(label);
+        const ly = final.py + Math.max(8, cellSize * 0.14);
+        ctx.fillStyle = 'rgba(0,0,0,0.7)';
+        ctx.fillRect(final.px - metrics.width / 2 - 2, ly - 1, metrics.width + 4, Math.max(10, cellSize * 0.2) + 2);
+        ctx.fillStyle = color;
+        ctx.fillText(label, final.px, ly);
       }
     }
   }

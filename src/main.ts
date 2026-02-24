@@ -9,6 +9,7 @@ import { deserializeBoard } from './net/serialization';
 import { BoardSnapshot, PlayerInfo, ServerMessage, TurnResolvedMsg } from './net/protocol';
 import { Board } from './engine/board';
 import { generateOrders, AiDifficulty } from './engine/ai';
+import { RouteManager } from './engine/route';
 
 const canvas = document.getElementById('game') as HTMLCanvasElement;
 const overlayEl = document.getElementById('overlay') as HTMLElement;
@@ -41,6 +42,7 @@ showMainMenu();
 let game: Game;
 let renderer: Renderer;
 let input: InputHandler;
+let routeManager: RouteManager;
 let currentPlayerIndex = 0;
 let pendingOrders: MoveOrder[] = [];
 let lastCombats: CombatResult[] = [];
@@ -51,6 +53,7 @@ function startHotseatGame(config: { cols: number; rows: number; playerCount: num
   game = new Game(config);
   renderer = new Renderer(canvas, config.cols, config.rows);
   input = new InputHandler(canvas, renderer);
+  routeManager = new RouteManager();
   lastCombats = [];
 
   input.onCellClick((pos) => {
@@ -73,6 +76,7 @@ function startHotseatGame(config: { cols: number; rows: number; playerCount: num
     };
 
     lastCombats = turnResult.combats;
+    routeManager.advanceRoutes(game.board);
 
     if (turnResult.winnerId !== null) {
       renderHotseatBoard();
@@ -204,6 +208,7 @@ function startPlayerOrderPhase(playerId: number) {
       validMoves = state.validMoves;
       renderHotseatBoard(false, playerId, pendingOrders);
     },
+    routeManager,
   );
 }
 
@@ -226,6 +231,15 @@ function renderHotseatBoard(hidden = false, currentPlayerId?: number, orders?: M
       ? game.board.getPlayerStacks(currentPlayerId).map((s) => s.pos)
       : [];
 
+  const routePaths = currentPlayerId !== undefined
+    ? routeManager.getPlayerRoutes(currentPlayerId).map((r) => ({
+        playerId: r.playerId,
+        currentPos: r.currentPos,
+        path: r.path,
+        unitCount: r.unitCount,
+      }))
+    : [];
+
   const state: RenderState = {
     board: game.board,
     orders: orders ?? [],
@@ -235,6 +249,7 @@ function renderHotseatBoard(hidden = false, currentPlayerId?: number, orders?: M
     highlightCells,
     combatCells: lastCombats,
     visibleCells: vis,
+    routePaths,
   };
   renderer.render(state);
 }
@@ -246,11 +261,13 @@ function renderHotseatBoard(hidden = false, currentPlayerId?: number, orders?: M
 let aiGame: Game;
 let aiRenderer: Renderer;
 let aiInput: InputHandler;
+let aiRouteManager: RouteManager;
 let aiDifficulty: AiDifficulty = 'medium';
 let aiPendingOrders: MoveOrder[] = [];
 let aiLastCombats: CombatResult[] = [];
 let aiSelectedCell: Position | null = null;
 let aiValidMoves: Position[] = [];
+let aiShowingResolution = false;
 
 function startAiGame(
   config: { cols: number; rows: number; startingUnits: number; visionRadius: number },
@@ -262,11 +279,12 @@ function startAiGame(
   aiGame = new Game(gameConfig);
   aiRenderer = new Renderer(canvas, gameConfig.cols, gameConfig.rows);
   aiInput = new InputHandler(canvas, aiRenderer);
+  aiRouteManager = new RouteManager();
   aiDifficulty = difficulty;
   aiLastCombats = [];
 
   aiInput.onCellClick((pos) => {
-    if (aiGame.phase !== GamePhase.ORDER_INPUT) return;
+    if (aiGame.phase !== GamePhase.ORDER_INPUT || aiShowingResolution) return;
     overlay.onCellSelected(pos, aiGame.board);
   });
 
@@ -285,6 +303,7 @@ function startAiGame(
     };
 
     aiLastCombats = turnResult.combats;
+    aiRouteManager.advanceRoutes(aiGame.board);
 
     if (turnResult.winnerId !== null) {
       renderAiBoard();
@@ -328,8 +347,10 @@ function startAiGame(
       }
     }
 
+    aiShowingResolution = true;
     renderAiBoard(false, humanId, undefined, visible);
     overlay.showResolution(lines.join('\n'), () => {
+      aiShowingResolution = false;
       aiLastCombats = [];
       startAiTurn();
     });
@@ -389,6 +410,7 @@ function startAiPlayerOrderPhase() {
     (orders) => {
       aiSelectedCell = null;
       aiValidMoves = [];
+      aiPendingOrders = [];
 
       // Submit human orders
       aiGame.submitOrders({ playerId: humanId, moves: orders });
@@ -411,6 +433,7 @@ function startAiPlayerOrderPhase() {
       aiValidMoves = state.validMoves;
       renderAiBoard(false, humanId, aiPendingOrders);
     },
+    aiRouteManager,
   );
 }
 
@@ -428,6 +451,13 @@ function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOr
 
   const highlightCells = aiGame.board.getPlayerStacks(pid).map((s) => s.pos);
 
+  const routePaths = aiRouteManager.getPlayerRoutes(pid).map((r) => ({
+    playerId: r.playerId,
+    currentPos: r.currentPos,
+    path: r.path,
+    unitCount: r.unitCount,
+  }));
+
   const state: RenderState = {
     board: aiGame.board,
     orders: orders ?? [],
@@ -437,6 +467,7 @@ function renderAiBoard(hidden = false, currentPlayerId?: number, orders?: MoveOr
     highlightCells,
     combatCells: aiLastCombats,
     visibleCells: vis,
+    routePaths,
   };
   aiRenderer.render(state);
 }
@@ -733,6 +764,7 @@ function renderOnlineBoard(): void {
     highlightCells,
     combatCells: netCombats,
     visibleCells: netVisibleKeys,
+    routePaths: [],
   };
   netRenderer.render(state);
 }

@@ -2,6 +2,7 @@ import { Direction, MoveOrder, Position, PLAYER_COLORS, PLAYER_NAMES, DIRECTION_
 import { AiDifficulty } from '../engine/ai';
 import { Board } from '../engine/board';
 import { PlayerInfo } from '../net/protocol';
+import { RouteManager } from '../engine/route';
 
 export type OrderCallback = (orders: MoveOrder[]) => void;
 
@@ -34,6 +35,8 @@ export class Overlay {
   private onOrdersChanged: (orders: MoveOrder[]) => void = () => {};
   private onSelectionChanged: (state: SelectionState) => void = () => {};
   private currentBoard: Board | null = null;
+  private routeManager: RouteManager | null = null;
+  private routeOrders: MoveOrder[] = [];
 
   // Two-click selection state
   private selectedFrom: Position | null = null;
@@ -41,6 +44,25 @@ export class Overlay {
 
   constructor(overlayEl: HTMLElement) {
     this.container = overlayEl;
+
+    document.addEventListener('keydown', (e) => {
+      if (e.code !== 'Space') return;
+      const target = e.target as HTMLElement;
+      if (target.tagName === 'INPUT' || target.tagName === 'TEXTAREA') return;
+
+      const btn =
+        this.container.querySelector('#split-confirm') as HTMLElement ??
+        this.container.querySelector('#confirm-orders-btn') as HTMLElement ??
+        this.container.querySelector('#continue-btn') as HTMLElement ??
+        this.container.querySelector('#pass-ready-btn') as HTMLElement ??
+        this.container.querySelector('#res-pass-ready-btn') as HTMLElement ??
+        this.container.querySelector('#new-game-btn') as HTMLElement;
+
+      if (btn) {
+        e.preventDefault();
+        btn.click();
+      }
+    });
   }
 
   /** Show privacy screen between turns */
@@ -147,6 +169,7 @@ export class Overlay {
     onConfirm: OrderCallback,
     onOrdersChanged: (orders: MoveOrder[]) => void,
     onSelectionChanged: (state: SelectionState) => void,
+    routeManager?: RouteManager,
   ): void {
     this.currentPlayerId = playerId;
     this.currentOrders = [];
@@ -156,6 +179,11 @@ export class Overlay {
     this.onConfirm = onConfirm;
     this.onOrdersChanged = onOrdersChanged;
     this.onSelectionChanged = onSelectionChanged;
+    this.routeManager = routeManager ?? null;
+    this.routeOrders = this.routeManager ? this.routeManager.generateOrders(playerId) : [];
+    if (this.routeOrders.length > 0) {
+      this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
+    }
     this.renderOrderPanel(board);
   }
 
@@ -180,7 +208,32 @@ export class Overlay {
       if (Math.abs(dx) <= 1 && Math.abs(dy) <= 1 && board.isInBounds(pos)) {
         const dir = DELTA_TO_DIRECTION[`${dx},${dy}`];
         if (dir) {
-          this.showSplitPopup(from, pos, dir, this.availableUnits, board);
+          if (this.availableUnits === 1) {
+            this.currentOrders.push({
+              playerId: this.currentPlayerId,
+              from,
+              unitCount: 1,
+              direction: dir,
+            });
+            this.clearSelection(board);
+            this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
+            this.renderOrderPanel(board);
+          } else {
+            this.showSplitPopup(from, pos, dir, this.availableUnits, board);
+          }
+          return;
+        }
+      }
+
+      // Non-adjacent cell - create route if routeManager available
+      if (this.routeManager && board.isInBounds(pos)) {
+        const dist = Math.max(Math.abs(dx), Math.abs(dy));
+        if (dist > 1) {
+          if (this.availableUnits === 1) {
+            this.createRoute(from, pos, 1, board);
+          } else {
+            this.showRouteSplitPopup(from, pos, this.availableUnits, board);
+          }
           return;
         }
       }
@@ -188,7 +241,8 @@ export class Overlay {
       // Click on another own stack - switch selection
       const otherStack = board.getPlayerStack(pos, this.currentPlayerId);
       if (otherStack && otherStack.alive) {
-        const assigned = this.currentOrders
+        const allOrders = [...this.routeOrders, ...this.currentOrders];
+        const assigned = allOrders
           .filter((o) => o.from.x === pos.x && o.from.y === pos.y)
           .reduce((s, o) => s + o.unitCount, 0);
         const available = otherStack.units - assigned;
@@ -207,7 +261,8 @@ export class Overlay {
     const stack = board.getPlayerStack(pos, this.currentPlayerId);
     if (!stack || !stack.alive) return;
 
-    const assigned = this.currentOrders
+    const allOrders = [...this.routeOrders, ...this.currentOrders];
+    const assigned = allOrders
       .filter((o) => o.from.x === pos.x && o.from.y === pos.y)
       .reduce((s, o) => s + o.unitCount, 0);
     const available = stack.units - assigned;
@@ -254,9 +309,32 @@ export class Overlay {
       padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
       min-width:200px;
     `;
+    const presets = [
+      { value: 1 },
+      { value: Math.max(1, Math.round(available * 0.25)) },
+      { value: Math.max(1, Math.round(available * 0.5)) },
+      { value: Math.max(1, Math.round(available * 0.75)) },
+      { value: available },
+    ];
+    // Deduplicate presets with same value
+    const seen = new Set<number>();
+    const uniquePresets = presets.filter((p) => {
+      if (seen.has(p.value)) return false;
+      seen.add(p.value);
+      return true;
+    });
+
+    const presetBtns = uniquePresets.map((p, i) =>
+      `<button class="split-preset" data-val="${p.value}" data-key="${i + 1}" style="
+        padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
+        color:#eee; cursor:pointer; border-radius:6px; font-size:0.85rem;
+      "><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
+    ).join('');
+
     popup.innerHTML = `
       <div style="font-size:1rem; opacity:0.7;">(${from.x},${from.y}) ${DIRECTION_LABELS[dir]} (${to.x},${to.y})</div>
       <div id="split-label" style="font-size:1.2rem;">Юниты: ${splitValue} / ${available}</div>
+      <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">${presetBtns}</div>
       <div style="display:flex; align-items:center; gap:8px; width:100%;">
         <button id="split-minus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">-</button>
         <input id="split-value" type="range" min="1" max="${available}" value="${splitValue}" style="flex:1;">
@@ -282,6 +360,27 @@ export class Overlay {
       label.textContent = `Юниты: ${splitValue} / ${available}`;
     };
 
+    const confirmOrder = () => {
+      (popup.querySelector('#split-confirm') as HTMLElement).click();
+    };
+
+    popup.querySelectorAll('.split-preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        splitValue = parseInt((btn as HTMLElement).dataset.val!);
+        confirmOrder();
+      });
+    });
+
+    const onPresetKey = (e: KeyboardEvent) => {
+      const key = parseInt(e.key);
+      if (key >= 1 && key <= uniquePresets.length) {
+        e.preventDefault();
+        splitValue = uniquePresets[key - 1].value;
+        confirmOrder();
+      }
+    };
+    document.addEventListener('keydown', onPresetKey);
+
     slider.addEventListener('input', () => {
       splitValue = parseInt(slider.value);
       updateLabel();
@@ -294,6 +393,7 @@ export class Overlay {
     });
 
     popup.querySelector('#split-confirm')!.addEventListener('click', () => {
+      document.removeEventListener('keydown', onPresetKey);
       this.currentOrders.push({
         playerId: this.currentPlayerId,
         from,
@@ -305,16 +405,132 @@ export class Overlay {
       const remaining = available - splitValue;
       if (remaining > 0) {
         this.availableUnits = remaining;
-        this.onOrdersChanged(this.currentOrders);
+        this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
         this.renderOrderPanel(board);
       } else {
         this.clearSelection(board);
-        this.onOrdersChanged(this.currentOrders);
+        this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
         this.renderOrderPanel(board);
       }
     });
 
     popup.querySelector('#split-cancel')!.addEventListener('click', () => {
+      document.removeEventListener('keydown', onPresetKey);
+      popup.remove();
+    });
+  }
+
+  private createRoute(from: Position, to: Position, unitCount: number, board: Board): void {
+    if (!this.routeManager) return;
+    this.routeManager.addRoute(this.currentPlayerId, from, to, unitCount, board);
+    this.routeOrders = this.routeManager.generateOrders(this.currentPlayerId);
+    this.clearSelection(board);
+    this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
+    this.renderOrderPanel(board);
+  }
+
+  private showRouteSplitPopup(from: Position, to: Position, available: number, board: Board): void {
+    const color = PLAYER_COLORS[this.currentPlayerId] ?? '#888';
+    let splitValue = available;
+
+    const popup = document.createElement('div');
+    popup.id = 'split-popup';
+    popup.style.cssText = `
+      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+      background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
+      padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
+      min-width:200px;
+    `;
+    const presets = [
+      { value: 1 },
+      { value: Math.max(1, Math.round(available * 0.25)) },
+      { value: Math.max(1, Math.round(available * 0.5)) },
+      { value: Math.max(1, Math.round(available * 0.75)) },
+      { value: available },
+    ];
+    const seen = new Set<number>();
+    const uniquePresets = presets.filter((p) => {
+      if (seen.has(p.value)) return false;
+      seen.add(p.value);
+      return true;
+    });
+
+    const presetBtns = uniquePresets.map((p, i) =>
+      `<button class="split-preset" data-val="${p.value}" data-key="${i + 1}" style="
+        padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
+        color:#eee; cursor:pointer; border-radius:6px; font-size:0.85rem;
+      "><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
+    ).join('');
+
+    popup.innerHTML = `
+      <div style="font-size:1rem; opacity:0.7;">Маршрут: (${from.x},${from.y}) -> (${to.x},${to.y})</div>
+      <div id="split-label" style="font-size:1.2rem;">Юниты: ${splitValue} / ${available}</div>
+      <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">${presetBtns}</div>
+      <div style="display:flex; align-items:center; gap:8px; width:100%;">
+        <button id="split-minus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">-</button>
+        <input id="split-value" type="range" min="1" max="${available}" value="${splitValue}" style="flex:1;">
+        <button id="split-plus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">+</button>
+      </div>
+      <div style="display:flex; gap:8px; width:100%;">
+        <button id="split-cancel" style="
+          flex:1; padding:0.6rem; border:1px solid #555; background:transparent;
+          color:#eee; cursor:pointer; border-radius:6px;
+        ">Отмена</button>
+        <button id="split-confirm" style="
+          flex:1; padding:0.6rem; border:2px solid ${color}; background:${color}33;
+          color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
+        ">Создать маршрут</button>
+      </div>
+    `;
+    this.container.appendChild(popup);
+
+    const slider = popup.querySelector('#split-value') as HTMLInputElement;
+    const label = popup.querySelector('#split-label')!;
+
+    const updateLabel = () => {
+      label.textContent = `Юниты: ${splitValue} / ${available}`;
+    };
+
+    const confirmRoute = () => {
+      (popup.querySelector('#split-confirm') as HTMLElement).click();
+    };
+
+    popup.querySelectorAll('.split-preset').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        splitValue = parseInt((btn as HTMLElement).dataset.val!);
+        confirmRoute();
+      });
+    });
+
+    const onPresetKey = (e: KeyboardEvent) => {
+      const key = parseInt(e.key);
+      if (key >= 1 && key <= uniquePresets.length) {
+        e.preventDefault();
+        splitValue = uniquePresets[key - 1].value;
+        confirmRoute();
+      }
+    };
+    document.addEventListener('keydown', onPresetKey);
+
+    slider.addEventListener('input', () => {
+      splitValue = parseInt(slider.value);
+      updateLabel();
+    });
+    popup.querySelector('#split-minus')!.addEventListener('click', () => {
+      if (splitValue > 1) { splitValue--; slider.value = String(splitValue); updateLabel(); }
+    });
+    popup.querySelector('#split-plus')!.addEventListener('click', () => {
+      if (splitValue < available) { splitValue++; slider.value = String(splitValue); updateLabel(); }
+    });
+
+    popup.querySelector('#split-confirm')!.addEventListener('click', () => {
+      document.removeEventListener('keydown', onPresetKey);
+      popup.remove();
+      this.createRoute(from, to, splitValue, board);
+    });
+
+    popup.querySelector('#split-cancel')!.addEventListener('click', () => {
+      document.removeEventListener('keydown', onPresetKey);
       popup.remove();
     });
   }
@@ -325,6 +541,29 @@ export class Overlay {
 
     const color = PLAYER_COLORS[this.currentPlayerId] ?? '#888';
     const name = PLAYER_NAMES[this.currentPlayerId] ?? `Игрок ${this.currentPlayerId + 1}`;
+
+    // Routes section
+    const playerRoutes = this.routeManager ? this.routeManager.getPlayerRoutes(this.currentPlayerId) : [];
+    let routesHtml = '';
+    if (playerRoutes.length > 0) {
+      const routeItems = playerRoutes.map((r) => {
+        const dest = r.path[r.path.length - 1];
+        const destLabel = dest ? `(${dest.x},${dest.y})` : '?';
+        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+          <span>(${r.currentPos.x},${r.currentPos.y}) -> ${destLabel}, ${r.path.length} шаг., ${r.unitCount} юн.</span>
+          <button class="remove-route-btn" data-route-id="${r.id}" style="
+            border:1px solid #555;background:transparent;color:#e55;cursor:pointer;
+            border-radius:4px;padding:2px 8px;font-size:0.9rem;
+          ">x</button>
+        </div>`;
+      }).join('');
+      routesHtml = `
+        <div style="margin-bottom:0.5rem;">
+          <div style="font-size:0.9rem; opacity:0.7; margin-bottom:4px;">Маршруты <span style="background:${color}44;padding:1px 6px;border-radius:4px;font-size:0.8rem;">${playerRoutes.length}</span></div>
+          ${routeItems}
+        </div>
+      `;
+    }
 
     const ordersList = this.currentOrders
       .map(
@@ -345,7 +584,7 @@ export class Overlay {
       selectionHtml = `
         <div style="border:1px solid ${color}; border-radius:8px; padding:0.5rem; margin-bottom:0.5rem; background:${color}11;">
           <div style="font-size:0.9rem;">Выбрано: (${this.selectedFrom.x}, ${this.selectedFrom.y}) - ${this.availableUnits} юн.</div>
-          <div style="font-size:0.8rem; opacity:0.5; margin-top:4px;">Кликни на соседнюю клетку</div>
+          <div style="font-size:0.8rem; opacity:0.5; margin-top:4px;">Соседняя = ход, дальняя = маршрут</div>
         </div>
       `;
     }
@@ -365,7 +604,8 @@ export class Overlay {
       <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">Приказы: ${name}</div>
       ${hint}
       ${selectionHtml}
-      ${ordersList || '<div style="opacity:0.4;">Пока нет приказов</div>'}
+      ${routesHtml}
+      ${ordersList || (playerRoutes.length === 0 ? '<div style="opacity:0.4;">Пока нет приказов</div>' : '')}
       <div style="display:flex; gap:8px; margin-top:1rem;">
         <button id="clear-orders-btn" style="
           flex:1; padding:0.5rem; border:1px solid #555; background:transparent;
@@ -379,30 +619,44 @@ export class Overlay {
     `;
     this.container.appendChild(panel);
 
+    // Remove route buttons
+    panel.querySelectorAll('.remove-route-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const routeId = parseInt((btn as HTMLElement).dataset.routeId!);
+        if (this.routeManager) {
+          this.routeManager.removeRoute(routeId);
+          this.routeOrders = this.routeManager.generateOrders(this.currentPlayerId);
+        }
+        this.clearSelection(board);
+        this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
+        this.renderOrderPanel(board);
+      });
+    });
+
     // Remove order buttons
     panel.querySelectorAll('.remove-order-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const idx = parseInt((btn as HTMLElement).dataset.idx!);
         this.currentOrders.splice(idx, 1);
         this.clearSelection(board);
-        this.onOrdersChanged(this.currentOrders);
+        this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
         this.renderOrderPanel(board);
       });
     });
 
-    // Clear all
+    // Clear manual orders only (routes stay)
     panel.querySelector('#clear-orders-btn')!.addEventListener('click', () => {
       this.currentOrders = [];
       this.clearSelection(board);
-      this.onOrdersChanged(this.currentOrders);
+      this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
       this.renderOrderPanel(board);
     });
 
-    // Confirm
+    // Confirm: merge route orders + manual orders
     panel.querySelector('#confirm-orders-btn')!.addEventListener('click', () => {
       panel.remove();
       this.clearSelection(board);
-      this.onConfirm([...this.currentOrders]);
+      this.onConfirm([...this.routeOrders, ...this.currentOrders]);
     });
   }
 
