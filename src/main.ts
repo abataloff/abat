@@ -20,6 +20,18 @@ const overlay = new Overlay(overlayEl);
 // Entry point: mode selection
 // ============================================================
 
+let currentUser: { id: number; name: string; email: string; avatarUrl?: string; isAdmin: boolean } | null = null;
+
+async function fetchUser(): Promise<void> {
+  try {
+    const res = await fetch('/api/me');
+    const data = await res.json();
+    currentUser = data.user;
+  } catch {
+    currentUser = null;
+  }
+}
+
 function showMainMenu(): void {
   statusBar.innerHTML = '';
   overlay.showModeSelect(
@@ -30,10 +42,40 @@ function showMainMenu(): void {
       onJoin: onJoinRoom,
       onBack: showMainMenu,
     }),
+    currentUser,
+    () => { window.location.href = '/auth/google'; },
+    async () => {
+      await fetch('/api/logout', { method: 'POST' });
+      currentUser = null;
+      showMainMenu();
+    },
   );
 }
 
-showMainMenu();
+async function tryReconnect(): Promise<boolean> {
+  const session = getNetSession();
+  if (!session) return false;
+
+  try {
+    netClient = new GameClient();
+    await netClient.connect(getWsUrl());
+    setupNetworkHandlers();
+    netClient.reconnect(session.roomCode, session.playerId);
+    return true;
+  } catch {
+    clearNetSession();
+    if (netClient) {
+      netClient.disconnect();
+      netClient = null;
+    }
+    return false;
+  }
+}
+
+fetchUser().then(async () => {
+  const reconnected = await tryReconnect();
+  if (!reconnected) showMainMenu();
+});
 
 // ============================================================
 // Hot-seat mode (existing logic)
@@ -484,6 +526,25 @@ let netValidMoves: Position[] = [];
 let netCombats: CombatResult[] = [];
 let netVisibleKeys: Set<string> | null = null;
 let netOrdersSubmitted = false;
+let netRoomCode = '';
+
+function saveNetSession(roomCode: string, playerId: number): void {
+  sessionStorage.setItem('abat-room', JSON.stringify({ roomCode, playerId }));
+}
+
+function clearNetSession(): void {
+  sessionStorage.removeItem('abat-room');
+}
+
+function getNetSession(): { roomCode: string; playerId: number } | null {
+  try {
+    const raw = sessionStorage.getItem('abat-room');
+    if (!raw) return null;
+    return JSON.parse(raw);
+  } catch {
+    return null;
+  }
+}
 
 function getWsUrl(): string {
   const protocol = location.protocol === 'https:' ? 'wss:' : 'ws:';
@@ -513,6 +574,7 @@ async function onJoinRoom(roomCode: string, playerName: string): Promise<void> {
 }
 
 function cleanupOnline(): void {
+  clearNetSession();
   if (netClient) {
     netClient.disconnect();
     netClient = null;
@@ -525,6 +587,7 @@ function cleanupOnline(): void {
   netCombats = [];
   netVisibleKeys = null;
   netOrdersSubmitted = false;
+  netRoomCode = '';
 }
 
 function setupNetworkHandlers(): void {
@@ -534,6 +597,8 @@ function setupNetworkHandlers(): void {
     const m = msg as ServerMessage & { type: 'room-created' };
     netPlayerId = m.playerId;
     netConfig = m.config;
+    netRoomCode = m.roomCode;
+    saveNetSession(m.roomCode, m.playerId);
     const myInfo: PlayerInfo = {
       id: m.playerId,
       name: 'Я',
@@ -551,7 +616,9 @@ function setupNetworkHandlers(): void {
     const m = msg as ServerMessage & { type: 'room-joined' };
     netPlayerId = m.playerId;
     netConfig = m.config;
+    netRoomCode = m.roomCode;
     netPlayers = m.players;
+    saveNetSession(m.roomCode, m.playerId);
     overlay.showWaitingRoom(m.roomCode, m.players, m.config, () => {
       cleanupOnline();
       showMainMenu();
@@ -562,6 +629,7 @@ function setupNetworkHandlers(): void {
     const m = msg as ServerMessage & { type: 'player-joined' };
     netPlayers = m.players;
     overlay.updateWaitingRoom(m.players);
+    updateOnlineStatusBar();
   });
 
   netClient.on('game-started', (msg) => {
@@ -599,6 +667,26 @@ function setupNetworkHandlers(): void {
     const player = netPlayers.find((p) => p.id === m.playerId);
     if (player) player.connected = false;
     updateOnlineStatusBar();
+  });
+
+  netClient.on('reconnected', (msg) => {
+    const m = msg as ServerMessage & { type: 'reconnected' };
+    netPlayerId = m.playerId;
+    netConfig = m.config;
+    netRoomCode = m.roomCode;
+    netPlayers = m.players;
+    saveNetSession(m.roomCode, m.playerId);
+
+    if (m.gameOver) {
+      startOnlineGame(m.board);
+      overlay.showVictory(m.winnerId!, () => {
+        cleanupOnline();
+        showMainMenu();
+      });
+    } else {
+      startOnlineGame(m.board);
+      onNetTurnStart(m.turnNumber, m.board);
+    }
   });
 
   netClient.on('error', (msg) => {

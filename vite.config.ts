@@ -12,6 +12,18 @@ export default defineConfig({
         target: 'ws://localhost:8051',
         ws: true,
       },
+      '/auth': {
+        target: 'http://localhost:8051',
+      },
+      '/api': {
+        target: 'http://localhost:8051',
+      },
+      '/admin': {
+        target: 'http://localhost:8051',
+      },
+      '/my-games': {
+        target: 'http://localhost:8051',
+      },
     },
   },
 });

@@ -873,12 +873,33 @@ export class Overlay {
   }
 
   /** Show mode selection: Hotseat vs AI vs Online */
-  showModeSelect(onHotseat: () => void, onAi: () => void, onOnline: () => void): void {
+  showModeSelect(
+    onHotseat: () => void,
+    onAi: () => void,
+    onOnline: () => void,
+    user?: { name: string; avatarUrl?: string } | null,
+    onLogin?: () => void,
+    onLogout?: () => void,
+  ): void {
+    const userHtml = user
+      ? `<div id="user-block" style="position:absolute; top:1rem; right:1rem; display:flex; align-items:center; gap:0.5rem;">
+          ${user.avatarUrl ? `<img src="${user.avatarUrl}" style="width:28px; height:28px; border-radius:50%;">` : ''}
+          <span style="font-size:0.85rem; opacity:0.8;">${this.escapeHtml(user.name)}</span>
+          <a id="btn-my-games" href="/my-games" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:#457B9D33; border:1px solid #457B9D; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace; text-decoration:none;">Мои игры</a>
+          <button id="btn-logout" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:#E7654533; border:1px solid #E76545; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace;">Выйти</button>
+        </div>`
+      : (onLogin
+        ? `<div style="position:absolute; top:1rem; right:1rem;">
+            <button id="btn-login" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#457B9D33; border:1px solid #457B9D; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace;">Войти через Google</button>
+          </div>`
+        : '');
+
     this.container.innerHTML = `
       <div style="
         position:absolute; inset:0; display:flex; flex-direction:column;
         align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
       ">
+        ${userHtml}
         <div style="font-size:3rem; font-weight:bold; margin-bottom:1rem; letter-spacing:0.2em;">ABAT</div>
         <div style="font-size:1rem; opacity:0.5; margin-bottom:3rem;">Стратегическая игра</div>
         <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
@@ -909,6 +930,18 @@ export class Overlay {
       this.container.innerHTML = '';
       onOnline();
     });
+    document.getElementById('btn-login')?.addEventListener('click', () => {
+      if (onLogin) onLogin();
+    });
+    document.getElementById('btn-logout')?.addEventListener('click', () => {
+      if (onLogout) onLogout();
+    });
+  }
+
+  private escapeHtml(text: string): string {
+    const div = document.createElement('div');
+    div.textContent = text;
+    return div.innerHTML;
   }
 
   /** Show AI game setup screen */

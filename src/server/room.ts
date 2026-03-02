@@ -2,7 +2,8 @@ import type { WebSocket } from 'ws';
 import { Game } from '../engine/game';
 import { GameConfig, CombatResult, TurnResult, PLAYER_COLORS, PLAYER_NAMES, MoveOrder } from '../engine/types';
 import { serializeBoardForPlayer, filterMovements, filterCombats } from '../net/serialization';
-import { PlayerInfo, ServerMessage } from '../net/protocol';
+import { PlayerInfo, ServerMessage, BoardSnapshot } from '../net/protocol';
+import { createGame, addGamePlayer, saveTurn, finishGame, updatePlayerResult, markGameAbandoned } from './db';
 
 interface ConnectedPlayer {
   ws: WebSocket | null;
@@ -10,6 +11,7 @@ interface ConnectedPlayer {
   name: string;
   connected: boolean;
   disconnectTimer: ReturnType<typeof setTimeout> | null;
+  userId: number | null;
 }
 
 export class Room {
@@ -18,6 +20,8 @@ export class Room {
   private players: ConnectedPlayer[] = [];
   private game: Game | null = null;
   private pendingOrders = new Set<number>();
+  private dbGameId: number | null = null;
+  private lastTurnOrders: Record<number, MoveOrder[]> = {};
 
   constructor(code: string, config: Omit<GameConfig, 'seed'>) {
     this.code = code;
@@ -36,18 +40,18 @@ export class Room {
     return this.game !== null;
   }
 
-  addPlayer(ws: WebSocket, name: string): number | null {
+  addPlayer(ws: WebSocket, name: string, userId: number | null = null): number | null {
     if (this.players.length >= this.config.playerCount) return null;
     if (this.game) return null;
 
     const id = this.players.length;
-    this.players.push({ ws, id, name, connected: true, disconnectTimer: null });
+    this.players.push({ ws, id, name, connected: true, disconnectTimer: null, userId });
     return id;
   }
 
-  reconnectPlayer(ws: WebSocket, playerId: number): boolean {
+  reconnectPlayer(ws: WebSocket, playerId: number): { board: BoardSnapshot; turnNumber: number; gameOver: boolean; winnerId: number | null } | null {
     const player = this.players[playerId];
-    if (!player) return false;
+    if (!player) return null;
 
     player.ws = ws;
     player.connected = true;
@@ -62,22 +66,20 @@ export class Room {
       players: this.getPlayerInfoList(),
     });
 
-    // Send current state if game is running
-    if (this.game) {
-      const board = serializeBoardForPlayer(
-        this.game.board,
-        playerId,
-        this.config.visionRadius,
-      );
-      this.sendTo(playerId, {
-        type: 'turn-start',
-        turnNumber: this.game.turnNumber,
-        board,
-        players: this.getPlayerInfoList(),
-      });
-    }
+    if (!this.game) return null;
 
-    return true;
+    const board = serializeBoardForPlayer(
+      this.game.board,
+      playerId,
+      this.config.visionRadius,
+    );
+
+    return {
+      board,
+      turnNumber: this.game.turnNumber,
+      gameOver: this.game.winnerId !== null,
+      winnerId: this.game.winnerId,
+    };
   }
 
   handleDisconnect(playerId: number): void {
@@ -114,6 +116,9 @@ export class Room {
     if (!this.game) return;
     if (!this.pendingOrders.has(playerId)) return;
 
+    // Save orders for DB storage
+    this.lastTurnOrders[playerId] = moves;
+
     // Delete BEFORE submitOrders because submitOrders may synchronously
     // trigger resolve -> onTurnResolved -> startOrderPhase which creates
     // a new pendingOrders set for the next turn.
@@ -130,6 +135,12 @@ export class Room {
     // Stamp playerId onto moves and submit (may trigger resolve synchronously)
     const stamped = moves.map((m) => ({ ...m, playerId }));
     this.game.submitOrders({ playerId, moves: stamped });
+  }
+
+  markAbandoned(): void {
+    if (this.dbGameId !== null) {
+      markGameAbandoned(this.dbGameId);
+    }
   }
 
   getPlayerInfoList(): PlayerInfo[] {
@@ -155,6 +166,12 @@ export class Room {
     };
 
     this.game = new Game(config);
+
+    // Save game to DB
+    this.dbGameId = createGame(this.code, this.config);
+    for (const player of this.players) {
+      addGamePlayer(this.dbGameId, player.userId, player.id, player.name);
+    }
 
     this.game.events.on('turn-resolved', (result) => {
       this.onTurnResolved(result as TurnResult);
@@ -184,6 +201,7 @@ export class Room {
 
     const activePlayers = this.game.getActivePlayers();
     this.pendingOrders = new Set(activePlayers.map((p) => p.id));
+    this.lastTurnOrders = {};
 
     // Send turn-start to each player with their fog of war view
     for (const player of this.players) {
@@ -211,6 +229,16 @@ export class Room {
   private onTurnResolved(result: TurnResult): void {
     if (!this.game) return;
 
+    // Save turn to DB
+    if (this.dbGameId !== null) {
+      saveTurn(this.dbGameId, result.turnNumber, this.lastTurnOrders, {
+        movements: result.movements,
+        combats: result.combats,
+        eliminations: result.eliminations,
+        winnerId: result.winnerId,
+      });
+    }
+
     // Send turn-resolved to each player with their fog of war
     for (const player of this.players) {
       const board = serializeBoardForPlayer(
@@ -231,11 +259,22 @@ export class Room {
       });
     }
 
+    // If game over, update DB
+    if (result.winnerId !== null && this.dbGameId !== null) {
+      finishGame(this.dbGameId, result.winnerId);
+      for (const player of this.players) {
+        const units = this.game.board.getPlayerTotalUnits(player.id);
+        const eliminated = this.game.players[player.id]?.eliminated ?? false;
+        updatePlayerResult(this.dbGameId, player.id, eliminated, units);
+      }
+    }
+
     // If game not over, prepare pending orders (don't send turn-start,
     // clients will start order input after viewing resolution)
     if (result.winnerId === null) {
       const activePlayers = this.game.getActivePlayers();
       this.pendingOrders = new Set(activePlayers.map((p) => p.id));
+      this.lastTurnOrders = {};
     }
   }
 

@@ -5,3 +5,12 @@ services:
     restart: unless-stopped
     ports:
       - "${PORT:-8051}:8051"
+    volumes:
+      - ./data:/data
+    environment:
+      - DB_PATH=/data/abat.db
+      - GOOGLE_CLIENT_ID=${GOOGLE_CLIENT_ID}
+      - GOOGLE_CLIENT_SECRET=${GOOGLE_CLIENT_SECRET}
+      - JWT_SECRET=${JWT_SECRET}
+      - BASE_URL=${BASE_URL}
+      - ADMIN_EMAILS=${ADMIN_EMAILS}

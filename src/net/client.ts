@@ -82,6 +82,10 @@ export class GameClient {
     this.send({ type: 'join-room', roomCode, playerName });
   }
 
+  reconnect(roomCode: string, playerId: number): void {
+    this.send({ type: 'reconnect', roomCode, playerId });
+  }
+
   submitOrders(moves: MoveOrder[]): void {
     this.send({ type: 'submit-orders', moves });
   }

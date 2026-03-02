@@ -19,6 +19,7 @@ export interface PlayerInfo {
   color: string;
   connected: boolean;
   eliminated: boolean;
+  avatarUrl?: string;
 }
 
 // --- Client → Server messages ---
@@ -40,7 +41,13 @@ export interface SubmitOrdersMsg {
   moves: MoveOrder[];
 }
 
-export type ClientMessage = CreateRoomMsg | JoinRoomMsg | SubmitOrdersMsg;
+export interface ReconnectMsg {
+  type: 'reconnect';
+  roomCode: string;
+  playerId: number;
+}
+
+export type ClientMessage = CreateRoomMsg | JoinRoomMsg | SubmitOrdersMsg | ReconnectMsg;
 
 // --- Server → Client messages ---
 
@@ -103,6 +110,18 @@ export interface TurnResolvedMsg {
   winnerId: number | null;
 }
 
+export interface ReconnectedMsg {
+  type: 'reconnected';
+  roomCode: string;
+  playerId: number;
+  config: Omit<GameConfig, 'seed'>;
+  board: BoardSnapshot;
+  players: PlayerInfo[];
+  turnNumber: number;
+  gameOver: boolean;
+  winnerId: number | null;
+}
+
 export interface ErrorMsg {
   type: 'error';
   message: string;
@@ -112,6 +131,7 @@ export interface ErrorMsg {
 export type ServerMessage =
   | RoomCreatedMsg
   | RoomJoinedMsg
+  | ReconnectedMsg
   | PlayerJoinedMsg
   | PlayerDisconnectedMsg
   | GameStartedMsg

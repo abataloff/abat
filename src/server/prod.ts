@@ -2,7 +2,11 @@ import { createServer } from 'node:http';
 import { readFileSync, existsSync } from 'node:fs';
 import { join, extname } from 'node:path';
 import { WebSocketServer } from 'ws';
-import { setupWebSocket } from './game';
+import { setupWebSocket, setWsUser } from './game';
+import { initDb } from './db';
+import { matchRoute } from './router';
+import { registerAuthRoutes, getUserFromRequest } from './auth';
+import { registerAdminRoutes } from './admin';
 
 const STATIC_DIR = join(__dirname, '../../dist');
 const PORT = Number(process.env.PORT) || 8051;
@@ -22,8 +26,24 @@ const MIME_TYPES: Record<string, string> = {
   '.wasm': 'application/wasm',
 };
 
+// Init DB and register routes
+initDb();
+registerAuthRoutes();
+registerAdminRoutes();
+
 const server = createServer((req, res) => {
-  let filePath = join(STATIC_DIR, req.url === '/' ? 'index.html' : req.url!);
+  const method = req.method || 'GET';
+  const url = req.url || '/';
+
+  // Try route match first
+  const route = matchRoute(method, url);
+  if (route) {
+    route.handler(req, res, route.params);
+    return;
+  }
+
+  // Static file serving
+  let filePath = join(STATIC_DIR, url === '/' ? 'index.html' : url.split('?')[0]);
 
   if (!existsSync(filePath)) {
     // SPA fallback: serve index.html for non-file paths
@@ -47,7 +67,12 @@ setupWebSocket(wss);
 
 server.on('upgrade', (req, socket, head) => {
   if (req.url === '/ws') {
+    // Extract user from cookie before upgrade
+    const user = getUserFromRequest(req);
+    const userId = user ? user.id : null;
+
     wss.handleUpgrade(req, socket, head, (ws) => {
+      setWsUser(ws, userId);
       wss.emit('connection', ws, req);
     });
   } else {

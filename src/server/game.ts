@@ -6,6 +6,11 @@ const ROOM_CLEANUP_INTERVAL = 60_000;
 
 const rooms = new Map<string, Room>();
 const clientRooms = new Map<WebSocket, { room: Room; playerId: number }>();
+const wsUsers = new Map<WebSocket, number | null>();
+
+export function setWsUser(ws: WebSocket, userId: number | null): void {
+  wsUsers.set(ws, userId);
+}
 
 function generateCode(): string {
   const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789'; // no ambiguous chars
@@ -32,13 +37,15 @@ function handleMessage(ws: WebSocket, data: string): void {
     return;
   }
 
+  const userId = wsUsers.get(ws) ?? null;
+
   switch (msg.type) {
     case 'create-room': {
       const code = generateCode();
       const room = new Room(code, msg.config);
       rooms.set(code, room);
 
-      const playerId = room.addPlayer(ws, msg.playerName);
+      const playerId = room.addPlayer(ws, msg.playerName, userId);
       if (playerId === null) {
         sendError(ws, 'Failed to create room', 'CREATE_FAILED');
         return;
@@ -67,7 +74,7 @@ function handleMessage(ws: WebSocket, data: string): void {
         return;
       }
 
-      const playerId = room.addPlayer(ws, msg.playerName);
+      const playerId = room.addPlayer(ws, msg.playerName, userId);
       if (playerId === null) {
         sendError(ws, 'Комната заполнена', 'ROOM_FULL');
         return;
@@ -108,6 +115,36 @@ function handleMessage(ws: WebSocket, data: string): void {
       break;
     }
 
+    case 'reconnect': {
+      const code = msg.roomCode.toUpperCase();
+      const room = rooms.get(code);
+      if (!room) {
+        sendError(ws, 'Комната не найдена', 'ROOM_NOT_FOUND');
+        return;
+      }
+
+      const state = room.reconnectPlayer(ws, msg.playerId);
+      if (!state) {
+        sendError(ws, 'Не удалось переподключиться', 'RECONNECT_FAILED');
+        return;
+      }
+
+      clientRooms.set(ws, { room, playerId: msg.playerId });
+
+      ws.send(JSON.stringify({
+        type: 'reconnected',
+        roomCode: code,
+        playerId: msg.playerId,
+        config: room.config,
+        board: state.board,
+        players: room.getPlayerInfoList(),
+        turnNumber: state.turnNumber,
+        gameOver: state.gameOver,
+        winnerId: state.winnerId,
+      }));
+      break;
+    }
+
     default:
       sendError(ws, 'Unknown message type', 'UNKNOWN_TYPE');
   }
@@ -115,10 +152,11 @@ function handleMessage(ws: WebSocket, data: string): void {
 
 function handleDisconnect(ws: WebSocket): void {
   const info = clientRooms.get(ws);
-  if (!info) return;
-
-  info.room.handleDisconnect(info.playerId);
-  clientRooms.delete(ws);
+  if (info) {
+    info.room.handleDisconnect(info.playerId);
+    clientRooms.delete(ws);
+  }
+  wsUsers.delete(ws);
 }
 
 export function setupWebSocket(wss: WebSocketServer): void {
@@ -126,6 +164,7 @@ export function setupWebSocket(wss: WebSocketServer): void {
   setInterval(() => {
     for (const [code, room] of rooms) {
       if (room.isEmpty) {
+        room.markAbandoned();
         rooms.delete(code);
       }
     }
