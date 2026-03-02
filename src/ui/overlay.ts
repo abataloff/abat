@@ -74,19 +74,11 @@ export class Overlay {
     const color = PLAYER_COLORS[playerId] ?? '#888';
     const name = PLAYER_NAMES[playerId] ?? `Игрок ${playerId + 1}`;
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e;
-        z-index:100;
-      ">
-        <div style="font-size:1.2rem; opacity:0.6; margin-bottom:1rem;">Ход ${turnNumber}</div>
-        <div style="font-size:2rem; margin-bottom:0.5rem;">Передай устройство</div>
-        <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name}</div>
-        <button id="pass-ready-btn" style="
-          padding:1rem 3rem; font-size:1.5rem; border:2px solid ${color};
-          background:transparent; color:${color}; cursor:pointer; border-radius:8px;
-          transition: background 0.2s;
-        ">Я ${name} - Показать поле</button>
+      <div class="screen">
+        <div class="subtitle mb-2">Ход ${turnNumber}</div>
+        <div style="font-size:2rem;" class="mb-1">Передай устройство</div>
+        <div style="font-size:3rem; font-weight:bold; color:${color};" class="mb-4">${name}</div>
+        <button id="pass-ready-btn" class="btn btn-primary btn-lg" style="--accent:${color}; color:${color};">Я ${name} - Показать поле</button>
       </div>
     `;
     document.getElementById('pass-ready-btn')!.addEventListener('click', () => {
@@ -100,19 +92,11 @@ export class Overlay {
     const color = PLAYER_COLORS[playerId] ?? '#888';
     const name = PLAYER_NAMES[playerId] ?? `Игрок ${playerId + 1}`;
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e;
-        z-index:100;
-      ">
-        <div style="font-size:1.2rem; opacity:0.6; margin-bottom:1rem;">Результаты хода ${turnNumber}</div>
-        <div style="font-size:2rem; margin-bottom:0.5rem;">Передай устройство</div>
-        <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name}</div>
-        <button id="res-pass-ready-btn" style="
-          padding:1rem 3rem; font-size:1.5rem; border:2px solid ${color};
-          background:transparent; color:${color}; cursor:pointer; border-radius:8px;
-          transition: background 0.2s;
-        ">Показать результаты</button>
+      <div class="screen">
+        <div class="subtitle mb-2">Результаты хода ${turnNumber}</div>
+        <div style="font-size:2rem;" class="mb-1">Передай устройство</div>
+        <div style="font-size:3rem; font-weight:bold; color:${color};" class="mb-4">${name}</div>
+        <button id="res-pass-ready-btn" class="btn btn-primary btn-lg" style="--accent:${color}; color:${color};">Показать результаты</button>
       </div>
     `;
     document.getElementById('res-pass-ready-btn')!.addEventListener('click', () => {
@@ -126,17 +110,10 @@ export class Overlay {
     const color = PLAYER_COLORS[playerId] ?? '#888';
     const name = PLAYER_NAMES[playerId] ?? `Игрок ${playerId + 1}`;
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:rgba(0,0,0,0.85);
-        z-index:100;
-      ">
-        <div style="font-size:2rem; margin-bottom:1rem;">Победа!</div>
-        <div style="font-size:3rem; font-weight:bold; color:${color}; margin-bottom:2rem;">${name} выиграл!</div>
-        <button id="new-game-btn" style="
-          padding:1rem 3rem; font-size:1.5rem; border:2px solid #eee;
-          background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-        ">Новая игра</button>
+      <div class="screen" style="background:var(--bg-overlay);">
+        <div style="font-size:2rem;" class="mb-2">Победа!</div>
+        <div style="font-size:3rem; font-weight:bold; color:${color};" class="mb-4">${name} выиграл!</div>
+        <button id="new-game-btn" class="btn btn-secondary btn-lg">Новая игра</button>
       </div>
     `;
     document.getElementById('new-game-btn')!.addEventListener('click', () => {
@@ -148,16 +125,9 @@ export class Overlay {
   /** Show resolution results */
   showResolution(message: string, onContinue: () => void): void {
     this.container.innerHTML = `
-      <div style="
-        position:absolute; bottom:0; left:0; right:0; display:flex; flex-direction:column;
-        align-items:center; padding:1.5rem; background:rgba(0,0,0,0.8);
-        z-index:50;
-      ">
-        <div style="font-size:1.2rem; margin-bottom:1rem; white-space:pre-line; text-align:center;">${message}</div>
-        <button id="continue-btn" style="
-          padding:0.7rem 2rem; font-size:1.2rem; border:2px solid #eee;
-          background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-        ">Далее</button>
+      <div class="panel-bottom">
+        <div style="font-size:1.2rem; white-space:pre-line;" class="text-center mb-2">${message}</div>
+        <button id="continue-btn" class="btn btn-secondary">Далее</button>
       </div>
     `;
     document.getElementById('continue-btn')!.addEventListener('click', () => {
@@ -173,39 +143,30 @@ export class Overlay {
     getPlayerName: (id: number) => string,
     onContinue: () => void,
   ): void {
-    let html = `<div style="
-      position:absolute; bottom:0; left:0; right:0; display:flex; flex-direction:column;
-      align-items:center; padding:1.5rem; background:rgba(0,0,0,0.85);
-      z-index:50; gap:0.75rem; max-height:60vh; overflow-y:auto;
-    ">`;
+    let html = `<div class="panel-bottom gap-sm" style="max-height:60vh; overflow-y:auto;">`;
 
     if (combats.length === 0) {
-      html += `<div style="font-size:1.1rem; opacity:0.7;">В этом ходу боёв не было.</div>`;
+      html += `<div style="font-size:1.1rem;" class="text-muted">В этом ходу боёв не было.</div>`;
     } else {
       for (const c of combats) {
-        html += `<div style="
-          background:rgba(255,255,255,0.07); border-radius:8px; padding:0.75rem 1rem;
-          width:100%; max-width:420px; border:1px solid rgba(255,255,255,0.1);
-        ">`;
+        html += `<div class="combat-card">`;
         html += `<div style="font-size:0.85rem; opacity:0.6; margin-bottom:0.4rem;">Бой (${c.position.x}, ${c.position.y})</div>`;
 
         for (const p of c.participants) {
           const color = PLAYER_COLORS[p.playerId] ?? '#888';
           const name = getPlayerName(p.playerId);
           const isWinner = p.playerId === c.winnerId;
-          const style = isWinner
-            ? 'font-weight:bold;'
-            : 'opacity:0.5;';
-          html += `<div style="display:flex; align-items:center; gap:0.4rem; margin:0.2rem 0; ${style}">`;
-          html += `<span style="width:10px; height:10px; border-radius:50%; background:${color}; display:inline-block; flex-shrink:0;"></span>`;
-          html += `<span>${name}</span>`;
+          const cls = isWinner ? 'text-bold' : '';
+          html += `<div class="flex-row" style="gap:0.4rem; margin:0.2rem 0; ${isWinner ? '' : 'opacity:0.5;'}">`;
+          html += `<span class="dot" style="background:${color};"></span>`;
+          html += `<span class="${cls}">${name}</span>`;
           html += `<span style="opacity:0.7; margin-left:auto;">${p.unitsBefore}</span>`;
           html += `</div>`;
         }
 
         const winnerName = getPlayerName(c.winnerId);
         const winnerColor = PLAYER_COLORS[c.winnerId] ?? '#888';
-        html += `<div style="margin-top:0.5rem; padding-top:0.4rem; border-top:1px solid rgba(255,255,255,0.1); font-size:0.9rem;">`;
+        html += `<div style="margin-top:0.5rem; padding-top:0.4rem; border-top:1px solid var(--border-subtle); font-size:0.9rem;">`;
         html += `<span style="color:${winnerColor}; font-weight:bold;">${winnerName}</span> побеждает, осталось <b>${c.unitsAfter}</b>`;
         html += `</div>`;
         html += `</div>`;
@@ -215,21 +176,13 @@ export class Overlay {
     for (const pid of eliminations) {
       const name = getPlayerName(pid);
       const color = PLAYER_COLORS[pid] ?? '#888';
-      html += `<div style="
-        background:rgba(230,57,70,0.15); border:1px solid rgba(230,57,70,0.4);
-        border-radius:8px; padding:0.6rem 1rem; width:100%; max-width:420px;
-        text-align:center; color:#E63946; font-weight:bold;
-      ">`;
-      html += `<span style="width:10px; height:10px; border-radius:50%; background:${color}; display:inline-block; vertical-align:middle; margin-right:0.3rem;"></span>`;
+      html += `<div class="elimination-banner">`;
+      html += `<span class="dot" style="background:${color}; vertical-align:middle; margin-right:0.3rem;"></span>`;
       html += `${name} уничтожен!`;
       html += `</div>`;
     }
 
-    html += `<button id="combat-continue-btn" style="
-      padding:0.7rem 2rem; font-size:1.2rem; border:2px solid #eee;
-      background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-      margin-top:0.25rem;
-    ">Далее</button>`;
+    html += `<button id="combat-continue-btn" class="btn btn-secondary" style="margin-top:0.25rem;">Далее</button>`;
     html += `</div>`;
 
     this.container.innerHTML = html;
@@ -381,14 +334,8 @@ export class Overlay {
     const popup = document.createElement('div');
     popup.id = 'split-popup';
     const mobile = this.isMobile();
-    popup.style.cssText = mobile
-      ? `position:absolute; bottom:0; left:0; right:0;
-         background:#1a1a2e; border-top:2px solid ${color}; border-radius:12px 12px 0 0;
-         padding:1rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:10px;`
-      : `position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-         background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
-         padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
-         min-width:200px;`;
+    popup.className = mobile ? 'popup popup-bottom' : 'popup popup-center';
+    popup.style.setProperty('--accent', color);
     const presets = [
       { value: 1 },
       { value: Math.max(1, Math.round(available * 0.25)) },
@@ -405,30 +352,21 @@ export class Overlay {
     });
 
     const presetBtns = uniquePresets.map((p, i) =>
-      `<button class="split-preset" data-val="${p.value}" data-key="${i + 1}" style="
-        padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
-        color:#eee; cursor:pointer; border-radius:6px; font-size:0.85rem;
-      "><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
+      `<button class="split-preset btn btn-sm btn-ghost" data-val="${p.value}"><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
     ).join('');
 
     popup.innerHTML = `
       <div style="font-size:1rem; opacity:0.7;">(${from.x},${from.y}) ${DIRECTION_LABELS[dir]} (${to.x},${to.y})</div>
       <div id="split-label" style="font-size:1.2rem;">Юниты: ${splitValue} / ${available}</div>
       <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">${presetBtns}</div>
-      <div style="display:flex; align-items:center; gap:8px; width:100%;">
-        <button id="split-minus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">-</button>
+      <div class="flex-row w-full" style="gap:8px;">
+        <button id="split-minus" class="btn btn-icon btn-ghost" style="font-size:1.2rem;">-</button>
         <input id="split-value" type="range" min="1" max="${available}" value="${splitValue}" style="flex:1;">
-        <button id="split-plus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">+</button>
+        <button id="split-plus" class="btn btn-icon btn-ghost" style="font-size:1.2rem;">+</button>
       </div>
-      <div style="display:flex; gap:8px; width:100%;">
-        <button id="split-cancel" style="
-          flex:1; padding:0.6rem; border:1px solid #555; background:transparent;
-          color:#eee; cursor:pointer; border-radius:6px;
-        ">Отмена</button>
-        <button id="split-confirm" style="
-          flex:1; padding:0.6rem; border:2px solid ${color}; background:${color}33;
-          color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
-        ">Отправить</button>
+      <div class="flex-row w-full" style="gap:8px;">
+        <button id="split-cancel" class="btn btn-ghost flex-1">Отмена</button>
+        <button id="split-confirm" class="btn btn-primary flex-1" style="--accent:${color};">Отправить</button>
       </div>
     `;
     this.container.appendChild(popup);
@@ -529,14 +467,8 @@ export class Overlay {
     const popup = document.createElement('div');
     popup.id = 'split-popup';
     const mobile = this.isMobile();
-    popup.style.cssText = mobile
-      ? `position:absolute; bottom:0; left:0; right:0;
-         background:#1a1a2e; border-top:2px solid ${color}; border-radius:12px 12px 0 0;
-         padding:1rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:10px;`
-      : `position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-         background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
-         padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
-         min-width:200px;`;
+    popup.className = mobile ? 'popup popup-bottom' : 'popup popup-center';
+    popup.style.setProperty('--accent', color);
     const presets = [
       { value: 1 },
       { value: Math.max(1, Math.round(available * 0.25)) },
@@ -552,30 +484,21 @@ export class Overlay {
     });
 
     const presetBtns = uniquePresets.map((p, i) =>
-      `<button class="split-preset" data-val="${p.value}" data-key="${i + 1}" style="
-        padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
-        color:#eee; cursor:pointer; border-radius:6px; font-size:0.85rem;
-      "><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
+      `<button class="split-preset btn btn-sm btn-ghost" data-val="${p.value}" data-key="${i + 1}"><span style="opacity:0.4;font-size:0.75rem;">${i + 1}:</span> ${p.value}</button>`,
     ).join('');
 
     popup.innerHTML = `
       <div style="font-size:1rem; opacity:0.7;">Маршрут: (${from.x},${from.y}) -> (${to.x},${to.y})</div>
       <div id="split-label" style="font-size:1.2rem;">Юниты: ${splitValue} / ${available}</div>
       <div style="display:flex; gap:6px; justify-content:center; flex-wrap:wrap;">${presetBtns}</div>
-      <div style="display:flex; align-items:center; gap:8px; width:100%;">
-        <button id="split-minus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">-</button>
+      <div class="flex-row w-full" style="gap:8px;">
+        <button id="split-minus" class="btn btn-icon btn-ghost" style="font-size:1.2rem;">-</button>
         <input id="split-value" type="range" min="1" max="${available}" value="${splitValue}" style="flex:1;">
-        <button id="split-plus" style="width:36px;height:36px;font-size:1.2rem;border:1px solid #555;background:transparent;color:#eee;cursor:pointer;border-radius:6px;">+</button>
+        <button id="split-plus" class="btn btn-icon btn-ghost" style="font-size:1.2rem;">+</button>
       </div>
-      <div style="display:flex; gap:8px; width:100%;">
-        <button id="split-cancel" style="
-          flex:1; padding:0.6rem; border:1px solid #555; background:transparent;
-          color:#eee; cursor:pointer; border-radius:6px;
-        ">Отмена</button>
-        <button id="split-confirm" style="
-          flex:1; padding:0.6rem; border:2px solid ${color}; background:${color}33;
-          color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
-        ">Создать маршрут</button>
+      <div class="flex-row w-full" style="gap:8px;">
+        <button id="split-cancel" class="btn btn-ghost flex-1">Отмена</button>
+        <button id="split-confirm" class="btn btn-primary flex-1" style="--accent:${color};">Создать маршрут</button>
       </div>
     `;
     this.container.appendChild(popup);
@@ -645,22 +568,16 @@ export class Overlay {
       const routeItems = playerRoutes.map((r) => {
         const dest = r.path[r.path.length - 1];
         const destLabel = dest ? `(${dest.x},${dest.y})` : '?';
-        return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+        return `<div class="flex-row" style="gap:8px; padding:4px 0;">
           <span>(${r.currentPos.x},${r.currentPos.y}) -> ${destLabel}, ${r.path.length} шаг., ${r.unitCount} юн.</span>
-          <button class="remove-route-btn" data-route-id="${r.id}" style="
-            border:1px solid #555;background:transparent;color:#e55;cursor:pointer;
-            border-radius:4px;padding:2px 8px;font-size:0.9rem;
-          ">x</button>
+          <button class="remove-route-btn btn btn-sm btn-danger" data-route-id="${r.id}">x</button>
         </div>`;
       }).join('');
       routesHtml = `
-        <div style="margin-bottom:0.5rem;">
-          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+        <div class="mb-1">
+          <div class="flex-row" style="gap:8px; margin-bottom:4px;">
             <span style="font-size:0.9rem; opacity:0.7;">Маршруты <span style="background:${color}44;padding:1px 6px;border-radius:4px;font-size:0.8rem;">${playerRoutes.length}</span></span>
-            <button id="clear-routes-btn" style="
-              margin-left:auto; border:1px solid #555; background:transparent;
-              color:#e55; cursor:pointer; border-radius:4px; padding:2px 8px; font-size:0.8rem;
-            ">Сбросить все</button>
+            <button id="clear-routes-btn" class="btn btn-sm btn-danger mt-auto" style="margin-left:auto;">Сбросить все</button>
           </div>
           ${routeItems}
         </div>
@@ -670,12 +587,9 @@ export class Overlay {
     const ordersList = this.currentOrders
       .map(
         (o, i) =>
-          `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
+          `<div class="flex-row" style="gap:8px; padding:4px 0;">
             <span>(${o.from.x},${o.from.y}) ${DIRECTION_LABELS[o.direction]} ${o.unitCount} юн.</span>
-            <button class="remove-order-btn" data-idx="${i}" style="
-              border:1px solid #555;background:transparent;color:#e55;cursor:pointer;
-              border-radius:4px;padding:2px 8px;font-size:0.9rem;
-            ">x</button>
+            <button class="remove-order-btn btn btn-sm btn-danger" data-idx="${i}">x</button>
           </div>`,
       )
       .join('');
@@ -684,7 +598,7 @@ export class Overlay {
     let selectionHtml = '';
     if (this.selectedFrom) {
       selectionHtml = `
-        <div style="border:1px solid ${color}; border-radius:8px; padding:0.5rem; margin-bottom:0.5rem; background:${color}11;">
+        <div class="selection-box" style="--accent:${color};">
           <div style="font-size:0.9rem;">Выбрано: (${this.selectedFrom.x}, ${this.selectedFrom.y}) - ${this.availableUnits} юн.</div>
           <div style="font-size:0.8rem; opacity:0.5; margin-top:4px;">Соседняя = ход, дальняя = маршрут</div>
         </div>
@@ -693,35 +607,24 @@ export class Overlay {
 
     const hint = this.selectedFrom
       ? ''
-      : '<div style="font-size:0.9rem; opacity:0.6; margin-bottom:0.5rem;">Кликни по своему отряду</div>';
+      : '<div style="font-size:0.9rem; opacity:0.6;" class="mb-1">Кликни по своему отряду</div>';
 
     const panel = document.createElement('div');
     panel.id = 'order-panel';
     const mobile = this.isMobile();
-    panel.style.cssText = mobile
-      ? `position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.92);
-         border-top:2px solid ${color}; border-radius:12px 12px 0 0; padding:0.5rem 0.75rem; z-index:40;
-         max-height:45vh; overflow-y:auto;`
-      : `position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85);
-         border:2px solid ${color}; border-radius:12px; padding:1rem; z-index:40;
-         min-width:220px; max-height:80vh; overflow-y:auto;`;
+    panel.className = mobile ? 'order-panel order-panel-mobile' : 'order-panel order-panel-desktop';
+    panel.style.setProperty('--accent', color);
 
     const ordersContent = ordersList || (playerRoutes.length === 0 ? '<div style="opacity:0.4;">Пока нет приказов</div>' : '');
 
     if (mobile) {
       // Compact mobile layout: header + buttons in one row, orders in scrollable zone
       panel.innerHTML = `
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:0.3rem;">
+        <div class="flex-row" style="gap:8px; margin-bottom:0.3rem;">
           <div style="font-size:1rem; font-weight:bold; color:${color}; white-space:nowrap;">Приказы: ${name}</div>
-          <div style="margin-left:auto; display:flex; gap:6px;">
-            <button id="clear-orders-btn" style="
-              padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
-              color:#eee; cursor:pointer; border-radius:6px; font-size:0.8rem;
-            ">Сбросить</button>
-            <button id="confirm-orders-btn" style="
-              padding:0.3rem 0.6rem; border:2px solid ${color}; background:${color}33;
-              color:#eee; cursor:pointer; border-radius:6px; font-weight:bold; font-size:0.8rem;
-            ">Готово</button>
+          <div class="flex-row mt-auto" style="gap:6px;">
+            <button id="clear-orders-btn" class="btn btn-sm btn-ghost">Сбросить</button>
+            <button id="confirm-orders-btn" class="btn btn-sm btn-primary" style="--accent:${color};">Готово</button>
           </div>
         </div>
         ${hint}
@@ -731,20 +634,14 @@ export class Overlay {
       `;
     } else {
       panel.innerHTML = `
-        <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">Приказы: ${name}</div>
+        <div style="font-size:1.2rem; font-weight:bold; color:${color};" class="mb-1">Приказы: ${name}</div>
         ${hint}
         ${selectionHtml}
         ${routesHtml}
         ${ordersContent}
-        <div style="display:flex; gap:8px; margin-top:1rem;">
-          <button id="clear-orders-btn" style="
-            flex:1; padding:0.5rem; border:1px solid #555; background:transparent;
-            color:#eee; cursor:pointer; border-radius:6px;
-          ">Сбросить</button>
-          <button id="confirm-orders-btn" style="
-            flex:1; padding:0.5rem; border:2px solid ${color}; background:${color}33;
-            color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
-          ">Готово</button>
+        <div class="flex-row" style="gap:8px; margin-top:1rem;">
+          <button id="clear-orders-btn" class="btn btn-ghost flex-1">Сбросить</button>
+          <button id="confirm-orders-btn" class="btn btn-primary flex-1" style="--accent:${color};">Готово</button>
         </div>
       `;
     }
@@ -805,59 +702,37 @@ export class Overlay {
   }
 
   /** Show game setup screen */
-  showSetup(onStart: (config: { cols: number; rows: number; playerCount: number; startingUnits: number; visionRadius: number }) => void): void {
+  showSetup(onStart: (config: { cols: number; rows: number; playerCount: number; startingUnits: number; visionRadius: number }) => void, onBack?: () => void): void {
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
-        <div style="font-size:3rem; font-weight:bold; margin-bottom:2rem; letter-spacing:0.2em;">ABAT</div>
-        <div style="font-size:1rem; opacity:0.5; margin-bottom:2rem;">Стратегическая игра</div>
-        <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="screen">
+        <div style="font-size:2rem; font-weight:700;" class="mb-4">Локальная игра</div>
+        <div class="flex-col gap-md" style="min-width:280px;">
+          <label class="field">
             <span>Ширина поля:</span>
-            <input id="cfg-cols" type="number" min="4" max="20" value="8" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="cfg-cols" type="number" min="4" max="20" value="8" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Высота поля:</span>
-            <input id="cfg-rows" type="number" min="4" max="20" value="8" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="cfg-rows" type="number" min="4" max="20" value="8" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Игроки:</span>
-            <select id="cfg-players" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <select id="cfg-players" class="select" style="width:60px;">
               <option value="2">2</option>
               <option value="3">3</option>
               <option value="4">4</option>
             </select>
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Начальные юниты:</span>
-            <input id="cfg-units" type="number" min="5" max="100" value="20" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="cfg-units" type="number" min="5" max="100" value="20" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Радиус обзора:</span>
-            <input id="cfg-vision" type="number" min="1" max="20" value="2" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="cfg-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px;">
           </label>
-          <button id="start-btn" style="
-            padding:1rem; font-size:1.3rem; border:2px solid #457B9D;
-            background:#457B9D33; color:#eee; cursor:pointer; border-radius:8px;
-            margin-top:1rem; font-weight:bold;
-          ">Начать игру</button>
+          <button id="start-btn" class="btn btn-primary btn-lg" style="margin-top:1rem;">Начать игру</button>
+          ${onBack ? '<button id="setup-back-btn" class="btn btn-ghost">Назад</button>' : ''}
         </div>
       </div>
     `;
@@ -869,6 +744,10 @@ export class Overlay {
       const visionRadius = parseInt((document.getElementById('cfg-vision') as HTMLInputElement).value) || 2;
       this.container.innerHTML = '';
       onStart({ cols, rows, playerCount, startingUnits, visionRadius });
+    });
+    document.getElementById('setup-back-btn')?.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      if (onBack) onBack();
     });
   }
 
@@ -882,39 +761,27 @@ export class Overlay {
     onLogout?: () => void,
   ): void {
     const userHtml = user
-      ? `<div id="user-block" style="position:absolute; top:1rem; right:1rem; display:flex; align-items:center; gap:0.5rem;">
-          ${user.avatarUrl ? `<img src="${user.avatarUrl}" style="width:28px; height:28px; border-radius:50%;">` : ''}
+      ? `<div id="user-block" class="user-bar">
+          ${user.avatarUrl ? `<img src="${user.avatarUrl}" alt="">` : ''}
           <span style="font-size:0.85rem; opacity:0.8;">${this.escapeHtml(user.name)}</span>
-          <a id="btn-my-games" href="/my-games" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:#457B9D33; border:1px solid #457B9D; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace; text-decoration:none;">Мои игры</a>
-          <button id="btn-logout" style="padding:0.3rem 0.6rem; font-size:0.75rem; background:#E7654533; border:1px solid #E76545; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace;">Выйти</button>
+          <a id="btn-my-games" href="/my-games" class="btn btn-sm btn-ghost" style="text-decoration:none; font-family:monospace; --accent:#457B9D;">Мои игры</a>
+          <button id="btn-logout" class="btn btn-sm btn-danger" style="font-family:monospace;">Выйти</button>
         </div>`
       : (onLogin
-        ? `<div style="position:absolute; top:1rem; right:1rem;">
-            <button id="btn-login" style="padding:0.4rem 0.8rem; font-size:0.8rem; background:#457B9D33; border:1px solid #457B9D; color:#eee; cursor:pointer; border-radius:4px; font-family:monospace;">Войти через Google</button>
+        ? `<div class="user-bar">
+            <button id="btn-login" class="btn btn-sm btn-ghost" style="font-family:monospace;">Войти через Google</button>
           </div>`
         : '');
 
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
+      <div class="screen">
         ${userHtml}
-        <div style="font-size:3rem; font-weight:bold; margin-bottom:1rem; letter-spacing:0.2em;">ABAT</div>
-        <div style="font-size:1rem; opacity:0.5; margin-bottom:3rem;">Стратегическая игра</div>
-        <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
-          <button id="mode-hotseat" style="
-            padding:1rem; font-size:1.3rem; border:2px solid #457B9D;
-            background:#457B9D33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
-          ">Локальная игра</button>
-          <button id="mode-ai" style="
-            padding:1rem; font-size:1.3rem; border:2px solid #E9C46A;
-            background:#E9C46A33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
-          ">Против компьютера</button>
-          <button id="mode-online" style="
-            padding:1rem; font-size:1.3rem; border:2px solid #2A9D8F;
-            background:#2A9D8F33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold;
-          ">Сетевая игра</button>
+        <div class="title mb-2">ABAT</div>
+        <div class="subtitle" style="margin-bottom:3rem;">Стратегическая игра</div>
+        <div class="flex-col gap-md" style="min-width:280px;">
+          <button id="mode-hotseat" class="btn btn-primary btn-lg" style="--accent:#457B9D;">Локальная игра</button>
+          <button id="mode-ai" class="btn btn-primary btn-lg" style="--accent:#E9C46A;">Против компьютера</button>
+          <button id="mode-online" class="btn btn-primary btn-lg" style="--accent:#2A9D8F;">Сетевая игра</button>
         </div>
       </div>
     `;
@@ -945,79 +812,49 @@ export class Overlay {
   }
 
   /** Show AI game setup screen */
-  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number, debugMode: boolean) => void, onBack: () => void): void {
+  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number, debugMode: boolean) => void, onBack: () => void, isAdmin = false): void {
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
-        <div style="font-size:2rem; font-weight:bold; margin-bottom:2rem;">Против компьютера</div>
-        <div style="display:flex; flex-direction:column; gap:1rem; min-width:280px;">
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+      <div class="screen">
+        <div style="font-size:2rem; font-weight:bold;" class="mb-4">Против компьютера</div>
+        <div class="flex-col gap-md" style="min-width:280px;">
+          <label class="field">
             <span>Ширина поля:</span>
-            <input id="ai-cols" type="number" min="4" max="20" value="8" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="ai-cols" type="number" min="4" max="20" value="8" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Высота поля:</span>
-            <input id="ai-rows" type="number" min="4" max="20" value="8" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="ai-rows" type="number" min="4" max="20" value="8" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>AI-противники:</span>
-            <select id="ai-count" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <select id="ai-count" class="select" style="width:60px;">
               <option value="1">1</option>
               <option value="2">2</option>
               <option value="3">3</option>
             </select>
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Сложность:</span>
-            <select id="ai-difficulty" style="
-              width:130px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <select id="ai-difficulty" class="select" style="width:130px;">
               <option value="easy">Легкий</option>
               <option value="medium" selected>Средний</option>
               <option value="hard">Сложный</option>
             </select>
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Начальные юниты:</span>
-            <input id="ai-units" type="number" min="5" max="100" value="20" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="ai-units" type="number" min="5" max="100" value="20" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          <label class="field">
             <span>Радиус обзора:</span>
-            <input id="ai-vision" type="number" min="1" max="20" value="2" style="
-              width:60px; padding:0.5rem; background:#16213e; border:1px solid #555;
-              color:#eee; border-radius:6px; text-align:center;
-            ">
+            <input id="ai-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px;">
           </label>
-          <label style="display:flex; justify-content:space-between; align-items:center;">
+          ${isAdmin ? `<label class="field">
             <span>Режим отладки (без тумана):</span>
-            <input id="ai-debug" type="checkbox" style="
-              width:20px; height:20px; accent-color:#E76F51; cursor:pointer;
-            ">
-          </label>
-          <button id="ai-start-btn" style="
-            padding:1rem; font-size:1.3rem; border:2px solid #E9C46A;
-            background:#E9C46A33; color:#eee; cursor:pointer; border-radius:8px;
-            margin-top:1rem; font-weight:bold;
-          ">Начать игру</button>
-          <button id="ai-back-btn" style="
-            padding:0.5rem; border:1px solid #555;
-            background:transparent; color:#eee; cursor:pointer; border-radius:6px;
-          ">Назад</button>
+            <input id="ai-debug" type="checkbox" style="width:20px; height:20px; accent-color:#E76F51; cursor:pointer;">
+          </label>` : ''}
+          <button id="ai-start-btn" class="btn btn-primary btn-lg" style="--accent:#E9C46A; margin-top:1rem;">Начать игру</button>
+          <button id="ai-back-btn" class="btn btn-ghost">Назад</button>
         </div>
       </div>
     `;
@@ -1028,7 +865,7 @@ export class Overlay {
       const aiDifficulty = (document.getElementById('ai-difficulty') as HTMLSelectElement).value as AiDifficulty;
       const startingUnits = parseInt((document.getElementById('ai-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('ai-vision') as HTMLInputElement).value) || 2;
-      const debugMode = (document.getElementById('ai-debug') as HTMLInputElement).checked;
+      const debugMode = (document.getElementById('ai-debug') as HTMLInputElement | null)?.checked ?? false;
       this.container.innerHTML = '';
       onStart({ cols, rows, startingUnits, visionRadius }, aiDifficulty, aiCount, debugMode);
     });
@@ -1045,88 +882,60 @@ export class Overlay {
     onBack: () => void;
   }): void {
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
-        <div style="font-size:2rem; font-weight:bold; margin-bottom:2rem;">Сетевая игра</div>
+      <div class="screen">
+        <div style="font-size:2rem; font-weight:bold;" class="mb-4">Сетевая игра</div>
 
         <div style="display:flex; gap:2rem; flex-wrap:wrap; justify-content:center;">
           <!-- Create room -->
-          <div style="
-            border:2px solid #457B9D; border-radius:12px; padding:1.5rem;
-            min-width:280px; display:flex; flex-direction:column; gap:0.8rem;
-          ">
-            <div style="font-size:1.2rem; font-weight:bold; color:#457B9D; margin-bottom:0.5rem;">Создать комнату</div>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card" style="--accent:#457B9D; min-width:280px;">
+            <div style="font-size:1.2rem; font-weight:bold; color:#457B9D;" class="mb-1">Создать комнату</div>
+            <label class="field">
               <span>Имя:</span>
-              <input id="create-name" type="text" value="Игрок" maxlength="16" style="
-                width:120px; padding:0.4rem; background:#16213e; border:1px solid #555;
-                color:#eee; border-radius:6px; text-align:center;
-              ">
+              <input id="create-name" type="text" value="Игрок" maxlength="16" class="input" style="width:120px;">
             </label>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="field">
               <span>Поле:</span>
               <span>
-                <input id="create-cols" type="number" min="4" max="20" value="8" style="width:45px; padding:0.4rem; background:#16213e; border:1px solid #555; color:#eee; border-radius:6px; text-align:center;">
+                <input id="create-cols" type="number" min="4" max="20" value="8" class="input" style="width:45px; padding:0.4rem;">
                 x
-                <input id="create-rows" type="number" min="4" max="20" value="8" style="width:45px; padding:0.4rem; background:#16213e; border:1px solid #555; color:#eee; border-radius:6px; text-align:center;">
+                <input id="create-rows" type="number" min="4" max="20" value="8" class="input" style="width:45px; padding:0.4rem;">
               </span>
             </label>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="field">
               <span>Игроки:</span>
-              <select id="create-players" style="width:60px; padding:0.4rem; background:#16213e; border:1px solid #555; color:#eee; border-radius:6px; text-align:center;">
+              <select id="create-players" class="select" style="width:60px; padding:0.4rem;">
                 <option value="2">2</option>
                 <option value="3">3</option>
                 <option value="4">4</option>
               </select>
             </label>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="field">
               <span>Юниты:</span>
-              <input id="create-units" type="number" min="5" max="100" value="20" style="width:60px; padding:0.4rem; background:#16213e; border:1px solid #555; color:#eee; border-radius:6px; text-align:center;">
+              <input id="create-units" type="number" min="5" max="100" value="20" class="input" style="width:60px; padding:0.4rem;">
             </label>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="field">
               <span>Обзор:</span>
-              <input id="create-vision" type="number" min="1" max="20" value="2" style="width:60px; padding:0.4rem; background:#16213e; border:1px solid #555; color:#eee; border-radius:6px; text-align:center;">
+              <input id="create-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px; padding:0.4rem;">
             </label>
-            <button id="create-btn" style="
-              padding:0.7rem; font-size:1.1rem; border:2px solid #457B9D;
-              background:#457B9D33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold; margin-top:0.5rem;
-            ">Создать</button>
+            <button id="create-btn" class="btn btn-primary" style="--accent:#457B9D; margin-top:0.5rem;">Создать</button>
           </div>
 
           <!-- Join room -->
-          <div style="
-            border:2px solid #2A9D8F; border-radius:12px; padding:1.5rem;
-            min-width:280px; display:flex; flex-direction:column; gap:0.8rem;
-          ">
-            <div style="font-size:1.2rem; font-weight:bold; color:#2A9D8F; margin-bottom:0.5rem;">Присоединиться</div>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+          <div class="card" style="--accent:#2A9D8F; min-width:280px;">
+            <div style="font-size:1.2rem; font-weight:bold; color:#2A9D8F;" class="mb-1">Присоединиться</div>
+            <label class="field">
               <span>Имя:</span>
-              <input id="join-name" type="text" value="Игрок" maxlength="16" style="
-                width:120px; padding:0.4rem; background:#16213e; border:1px solid #555;
-                color:#eee; border-radius:6px; text-align:center;
-              ">
+              <input id="join-name" type="text" value="Игрок" maxlength="16" class="input" style="width:120px;">
             </label>
-            <label style="display:flex; justify-content:space-between; align-items:center;">
+            <label class="field">
               <span>Код:</span>
-              <input id="join-code" type="text" maxlength="4" placeholder="ABCD" style="
-                width:120px; padding:0.4rem; background:#16213e; border:1px solid #555;
-                color:#eee; border-radius:6px; text-align:center; text-transform:uppercase;
-                font-size:1.2rem; letter-spacing:0.3em;
-              ">
+              <input id="join-code" type="text" maxlength="4" placeholder="ABCD" class="input" style="width:120px; text-transform:uppercase; font-size:1.2rem; letter-spacing:0.3em;">
             </label>
-            <button id="join-btn" style="
-              padding:0.7rem; font-size:1.1rem; border:2px solid #2A9D8F;
-              background:#2A9D8F33; color:#eee; cursor:pointer; border-radius:8px; font-weight:bold; margin-top:0.5rem;
-            ">Войти</button>
+            <button id="join-btn" class="btn btn-primary" style="--accent:#2A9D8F; margin-top:0.5rem;">Войти</button>
           </div>
         </div>
 
-        <button id="lobby-back-btn" style="
-          margin-top:2rem; padding:0.5rem 2rem; border:1px solid #555;
-          background:transparent; color:#eee; cursor:pointer; border-radius:6px;
-        ">Назад</button>
+        <button id="lobby-back-btn" class="btn btn-ghost" style="margin-top:2rem;">Назад</button>
       </div>
     `;
 
@@ -1158,30 +967,24 @@ export class Overlay {
   /** Show waiting room with room code and player list */
   showWaitingRoom(roomCode: string, players: PlayerInfo[], config: Omit<GameConfig, 'seed'>, onLeave: () => void): void {
     const playerListHtml = players.map((p) => `
-      <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-        <span class="status-dot" style="background:${p.color}; width:12px; height:12px; border-radius:50%; display:inline-block;"></span>
+      <div class="flex-row" style="gap:8px; padding:4px 0;">
+        <span class="dot dot-lg" style="background:${p.color};"></span>
         <span>${p.name}</span>
         <span style="opacity:0.5;">${p.connected ? '' : '(отключен)'}</span>
       </div>
     `).join('');
 
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
-        <div style="font-size:1.2rem; opacity:0.6; margin-bottom:1rem;">Код комнаты:</div>
-        <div style="font-size:4rem; font-weight:bold; letter-spacing:0.5em; margin-bottom:2rem; color:#457B9D;">${roomCode}</div>
-        <div style="font-size:1rem; opacity:0.6; margin-bottom:0.5rem;">Поле ${config.cols}x${config.rows}, ${config.startingUnits} юн., обзор ${config.visionRadius}</div>
-        <div style="font-size:1.2rem; margin-bottom:0.5rem;">Игроки (${players.length}/${config.playerCount}):</div>
-        <div id="waiting-players" style="margin-bottom:2rem; min-width:200px;">
+      <div class="screen">
+        <div class="subtitle mb-2">Код комнаты:</div>
+        <div style="font-size:4rem; font-weight:bold; letter-spacing:0.5em; color:#457B9D;" class="mb-4">${roomCode}</div>
+        <div class="subtitle mb-1">Поле ${config.cols}x${config.rows}, ${config.startingUnits} юн., обзор ${config.visionRadius}</div>
+        <div style="font-size:1.2rem;" class="mb-1">Игроки (${players.length}/${config.playerCount}):</div>
+        <div id="waiting-players" class="mb-4" style="min-width:200px;">
           ${playerListHtml}
         </div>
-        <div style="font-size:1rem; opacity:0.5; margin-bottom:1rem;">Ожидание игроков...</div>
-        <button id="leave-room-btn" style="
-          padding:0.5rem 2rem; border:1px solid #555;
-          background:transparent; color:#eee; cursor:pointer; border-radius:6px;
-        ">Покинуть</button>
+        <div class="subtitle mb-2">Ожидание игроков...</div>
+        <button id="leave-room-btn" class="btn btn-ghost">Покинуть</button>
       </div>
     `;
     document.getElementById('leave-room-btn')!.addEventListener('click', () => {
@@ -1195,8 +998,8 @@ export class Overlay {
     const el = document.getElementById('waiting-players');
     if (!el) return;
     el.innerHTML = players.map((p) => `
-      <div style="display:flex; align-items:center; gap:8px; padding:4px 0;">
-        <span style="background:${p.color}; width:12px; height:12px; border-radius:50%; display:inline-block;"></span>
+      <div class="flex-row" style="gap:8px; padding:4px 0;">
+        <span class="dot dot-lg" style="background:${p.color};"></span>
         <span>${p.name}</span>
         <span style="opacity:0.5;">${p.connected ? '' : '(отключен)'}</span>
       </div>
@@ -1213,13 +1016,9 @@ export class Overlay {
       .join(', ');
 
     this.container.innerHTML = `
-      <div style="
-        position:absolute; bottom:0; left:0; right:0; display:flex; flex-direction:column;
-        align-items:center; padding:1.5rem; background:rgba(0,0,0,0.8);
-        z-index:50;
-      ">
+      <div class="panel-bottom">
         <div style="font-size:1.2rem;">Ожидание приказов...</div>
-        <div style="font-size:1rem; opacity:0.6; margin-top:0.5rem;">${pendingNames}</div>
+        <div class="subtitle" style="margin-top:0.5rem;">${pendingNames}</div>
       </div>
     `;
   }
@@ -1227,15 +1026,9 @@ export class Overlay {
   /** Show error message with back button */
   showError(message: string, onBack: () => void): void {
     this.container.innerHTML = `
-      <div style="
-        position:absolute; inset:0; display:flex; flex-direction:column;
-        align-items:center; justify-content:center; background:#1a1a2e; z-index:100;
-      ">
-        <div style="font-size:1.5rem; color:#E63946; margin-bottom:2rem;">${message}</div>
-        <button id="error-back-btn" style="
-          padding:0.7rem 2rem; border:2px solid #eee;
-          background:transparent; color:#eee; cursor:pointer; border-radius:8px;
-        ">Назад</button>
+      <div class="screen">
+        <div style="font-size:1.5rem; color:var(--danger);" class="mb-4">${message}</div>
+        <button id="error-back-btn" class="btn btn-secondary">Назад</button>
       </div>
     `;
     document.getElementById('error-back-btn')!.addEventListener('click', () => {

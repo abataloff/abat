@@ -35,8 +35,8 @@ async function fetchUser(): Promise<void> {
 function showMainMenu(): void {
   statusBar.innerHTML = '';
   overlay.showModeSelect(
-    () => overlay.showSetup(startHotseatGame),
-    () => overlay.showAiSetup(startAiGame, showMainMenu),
+    () => overlay.showSetup(startHotseatGame, showMainMenu),
+    () => overlay.showAiSetup(startAiGame, showMainMenu, !!currentUser?.isAdmin),
     () => overlay.showOnlineLobby({
       onCreate: onCreateRoom,
       onJoin: onJoinRoom,
