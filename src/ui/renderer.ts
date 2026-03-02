@@ -37,10 +37,13 @@ export class Renderer {
 
   resize(): void {
     const parent = this.canvas.parentElement!;
-    const maxW = parent.clientWidth - 40;
-    const maxH = parent.clientHeight - 40;
+    const mobile = window.innerWidth < 600;
+    const padH = mobile ? 16 : 40;
+    const padV = mobile ? 16 : 40;
+    const maxW = parent.clientWidth - padH;
+    const maxH = parent.clientHeight - padV;
     this.cellSize = Math.floor(Math.min(maxW / this.cols, maxH / this.rows));
-    this.cellSize = Math.max(this.cellSize, 40); // minimum cell size
+    this.cellSize = Math.max(this.cellSize, 30); // lower minimum on mobile
     const totalW = this.cellSize * this.cols;
     const totalH = this.cellSize * this.rows;
     this.canvas.width = totalW;
@@ -112,6 +115,7 @@ export class Renderer {
   }
 
   private drawCoordinates(visibleCells: Set<string> | null): void {
+    if (this.cellSize < 50) return; // Hide coordinates on small cells (mobile)
     const { ctx, cellSize, offsetX, offsetY, cols, rows } = this;
     ctx.fillStyle = 'rgba(255,255,255,0.15)';
     ctx.font = `${Math.max(9, cellSize * 0.18)}px system-ui`;

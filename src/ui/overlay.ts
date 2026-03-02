@@ -42,6 +42,10 @@ export class Overlay {
   private selectedFrom: Position | null = null;
   private availableUnits = 0;
 
+  private isMobile(): boolean {
+    return window.innerWidth < 600;
+  }
+
   constructor(overlayEl: HTMLElement) {
     this.container = overlayEl;
 
@@ -376,12 +380,15 @@ export class Overlay {
 
     const popup = document.createElement('div');
     popup.id = 'split-popup';
-    popup.style.cssText = `
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
-      padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
-      min-width:200px;
-    `;
+    const mobile = this.isMobile();
+    popup.style.cssText = mobile
+      ? `position:absolute; bottom:0; left:0; right:0;
+         background:#1a1a2e; border-top:2px solid ${color}; border-radius:12px 12px 0 0;
+         padding:1rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:10px;`
+      : `position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+         background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
+         padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
+         min-width:200px;`;
     const presets = [
       { value: 1 },
       { value: Math.max(1, Math.round(available * 0.25)) },
@@ -497,9 +504,22 @@ export class Overlay {
     if (!this.routeManager) return;
     this.routeManager.addRoute(this.currentPlayerId, from, to, unitCount, board);
     this.routeOrders = this.routeManager.generateOrders(this.currentPlayerId);
-    this.clearSelection(board);
     this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
-    this.renderOrderPanel(board);
+
+    // Keep stack selected if units remain
+    const stack = board.getPlayerStack(from, this.currentPlayerId);
+    if (stack) {
+      const allOrders = [...this.routeOrders, ...this.currentOrders];
+      const assigned = allOrders
+        .filter((o) => o.from.x === from.x && o.from.y === from.y)
+        .reduce((s, o) => s + o.unitCount, 0);
+      const remaining = stack.units - assigned;
+      if (remaining > 0) {
+        this.selectStack(from, remaining, board);
+        return;
+      }
+    }
+    this.clearSelection(board);
   }
 
   private showRouteSplitPopup(from: Position, to: Position, available: number, board: Board): void {
@@ -508,12 +528,15 @@ export class Overlay {
 
     const popup = document.createElement('div');
     popup.id = 'split-popup';
-    popup.style.cssText = `
-      position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
-      background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
-      padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
-      min-width:200px;
-    `;
+    const mobile = this.isMobile();
+    popup.style.cssText = mobile
+      ? `position:absolute; bottom:0; left:0; right:0;
+         background:#1a1a2e; border-top:2px solid ${color}; border-radius:12px 12px 0 0;
+         padding:1rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:10px;`
+      : `position:absolute; top:50%; left:50%; transform:translate(-50%,-50%);
+         background:#1a1a2e; border:2px solid ${color}; border-radius:12px;
+         padding:1.5rem; z-index:70; display:flex; flex-direction:column; align-items:center; gap:12px;
+         min-width:200px;`;
     const presets = [
       { value: 1 },
       { value: Math.max(1, Math.round(available * 0.25)) },
@@ -632,7 +655,13 @@ export class Overlay {
       }).join('');
       routesHtml = `
         <div style="margin-bottom:0.5rem;">
-          <div style="font-size:0.9rem; opacity:0.7; margin-bottom:4px;">Маршруты <span style="background:${color}44;padding:1px 6px;border-radius:4px;font-size:0.8rem;">${playerRoutes.length}</span></div>
+          <div style="display:flex;align-items:center;gap:8px;margin-bottom:4px;">
+            <span style="font-size:0.9rem; opacity:0.7;">Маршруты <span style="background:${color}44;padding:1px 6px;border-radius:4px;font-size:0.8rem;">${playerRoutes.length}</span></span>
+            <button id="clear-routes-btn" style="
+              margin-left:auto; border:1px solid #555; background:transparent;
+              color:#e55; cursor:pointer; border-radius:4px; padding:2px 8px; font-size:0.8rem;
+            ">Сбросить все</button>
+          </div>
           ${routeItems}
         </div>
       `;
@@ -668,28 +697,57 @@ export class Overlay {
 
     const panel = document.createElement('div');
     panel.id = 'order-panel';
-    panel.style.cssText = `
-      position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85);
-      border:2px solid ${color}; border-radius:12px; padding:1rem; z-index:40;
-      min-width:220px; max-height:80vh; overflow-y:auto;
-    `;
-    panel.innerHTML = `
-      <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">Приказы: ${name}</div>
-      ${hint}
-      ${selectionHtml}
-      ${routesHtml}
-      ${ordersList || (playerRoutes.length === 0 ? '<div style="opacity:0.4;">Пока нет приказов</div>' : '')}
-      <div style="display:flex; gap:8px; margin-top:1rem;">
-        <button id="clear-orders-btn" style="
-          flex:1; padding:0.5rem; border:1px solid #555; background:transparent;
-          color:#eee; cursor:pointer; border-radius:6px;
-        ">Сбросить</button>
-        <button id="confirm-orders-btn" style="
-          flex:1; padding:0.5rem; border:2px solid ${color}; background:${color}33;
-          color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
-        ">Готово</button>
-      </div>
-    `;
+    const mobile = this.isMobile();
+    panel.style.cssText = mobile
+      ? `position:absolute; bottom:0; left:0; right:0; background:rgba(0,0,0,0.92);
+         border-top:2px solid ${color}; border-radius:12px 12px 0 0; padding:0.5rem 0.75rem; z-index:40;
+         max-height:45vh; overflow-y:auto;`
+      : `position:absolute; top:10px; right:10px; background:rgba(0,0,0,0.85);
+         border:2px solid ${color}; border-radius:12px; padding:1rem; z-index:40;
+         min-width:220px; max-height:80vh; overflow-y:auto;`;
+
+    const ordersContent = ordersList || (playerRoutes.length === 0 ? '<div style="opacity:0.4;">Пока нет приказов</div>' : '');
+
+    if (mobile) {
+      // Compact mobile layout: header + buttons in one row, orders in scrollable zone
+      panel.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:0.3rem;">
+          <div style="font-size:1rem; font-weight:bold; color:${color}; white-space:nowrap;">Приказы: ${name}</div>
+          <div style="margin-left:auto; display:flex; gap:6px;">
+            <button id="clear-orders-btn" style="
+              padding:0.3rem 0.6rem; border:1px solid #555; background:transparent;
+              color:#eee; cursor:pointer; border-radius:6px; font-size:0.8rem;
+            ">Сбросить</button>
+            <button id="confirm-orders-btn" style="
+              padding:0.3rem 0.6rem; border:2px solid ${color}; background:${color}33;
+              color:#eee; cursor:pointer; border-radius:6px; font-weight:bold; font-size:0.8rem;
+            ">Готово</button>
+          </div>
+        </div>
+        ${hint}
+        ${selectionHtml}
+        ${routesHtml}
+        ${ordersContent}
+      `;
+    } else {
+      panel.innerHTML = `
+        <div style="font-size:1.2rem; font-weight:bold; color:${color}; margin-bottom:0.5rem;">Приказы: ${name}</div>
+        ${hint}
+        ${selectionHtml}
+        ${routesHtml}
+        ${ordersContent}
+        <div style="display:flex; gap:8px; margin-top:1rem;">
+          <button id="clear-orders-btn" style="
+            flex:1; padding:0.5rem; border:1px solid #555; background:transparent;
+            color:#eee; cursor:pointer; border-radius:6px;
+          ">Сбросить</button>
+          <button id="confirm-orders-btn" style="
+            flex:1; padding:0.5rem; border:2px solid ${color}; background:${color}33;
+            color:#eee; cursor:pointer; border-radius:6px; font-weight:bold;
+          ">Готово</button>
+        </div>
+      `;
+    }
     this.container.appendChild(panel);
 
     // Remove route buttons
@@ -704,6 +762,19 @@ export class Overlay {
         this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
         this.renderOrderPanel(board);
       });
+    });
+
+    // Clear all routes button
+    panel.querySelector('#clear-routes-btn')?.addEventListener('click', () => {
+      if (this.routeManager) {
+        for (const r of [...this.routeManager.getPlayerRoutes(this.currentPlayerId)]) {
+          this.routeManager.removeRoute(r.id);
+        }
+        this.routeOrders = [];
+      }
+      this.clearSelection(board);
+      this.onOrdersChanged([...this.routeOrders, ...this.currentOrders]);
+      this.renderOrderPanel(board);
     });
 
     // Remove order buttons

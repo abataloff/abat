@@ -19,6 +19,14 @@
     #overlay > * { pointer-events: auto; }
     button:hover:not(:disabled) { filter: brightness(1.2); }
     button:active:not(:disabled) { transform: scale(0.97); }
+
+    @media (max-width: 600px) {
+      #status-bar { gap: 8px; font-size: 0.8rem; flex-wrap: wrap; padding: 4px 8px; min-height: 36px; }
+      .status-player { gap: 3px; font-size: 0.8rem; }
+      .status-dot { width: 8px; height: 8px; }
+      .status-turn { font-size: 0.85rem; margin-right: 4px; }
+      #board-area { padding-bottom: 60px; }
+    }
   </style>
 </head>
 <body>
