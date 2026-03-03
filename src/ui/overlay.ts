@@ -909,11 +909,52 @@ export class Overlay {
   }
 
   /** Show online lobby: create or join room */
+  /** Show invite join screen for /join/XXXX links */
+  showInviteJoin(
+    roomCode: string,
+    defaultName: string,
+    onJoin: (roomCode: string, playerName: string) => void,
+    onBack: () => void,
+  ): void {
+    this.container.innerHTML = `
+      <div class="screen">
+        <div style="font-size:2rem; font-weight:bold;" class="mb-2">Присоединиться к игре</div>
+        <div class="subtitle mb-1">Код комнаты:</div>
+        <div style="font-size:3rem; font-weight:bold; letter-spacing:0.4em; color:#2A9D8F;" class="mb-4">${roomCode}</div>
+        <label class="field" style="justify-content:center;">
+          <span>Ваше имя:</span>
+          <input id="invite-name" type="text" value="${defaultName}" maxlength="16" class="input" style="width:160px;">
+        </label>
+        <div style="display:flex; gap:1rem; margin-top:1.5rem;">
+          <button id="invite-join-btn" class="btn btn-primary" style="--accent:#2A9D8F;">Присоединиться</button>
+          <button id="invite-back-btn" class="btn btn-ghost">На главную</button>
+        </div>
+      </div>
+    `;
+
+    const doJoin = () => {
+      const name = (document.getElementById('invite-name') as HTMLInputElement).value.trim() || defaultName;
+      this.container.innerHTML = '';
+      onJoin(roomCode, name);
+    };
+
+    document.getElementById('invite-join-btn')!.addEventListener('click', doJoin);
+    document.getElementById('invite-name')!.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') doJoin();
+    });
+    document.getElementById('invite-back-btn')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      onBack();
+    });
+  }
+
   showOnlineLobby(callbacks: {
     onCreate: (config: Omit<GameConfig, 'seed'>, playerName: string) => void;
     onJoin: (roomCode: string, playerName: string) => void;
     onBack: () => void;
+    defaultName?: string;
   }): void {
+    const dn = callbacks.defaultName || 'Игрок';
     this.container.innerHTML = `
       <div class="screen">
         <div style="font-size:2rem; font-weight:bold;" class="mb-4">Сетевая игра</div>
@@ -924,7 +965,7 @@ export class Overlay {
             <div style="font-size:1.2rem; font-weight:bold; color:#457B9D;" class="mb-1">Создать комнату</div>
             <label class="field">
               <span>Имя:</span>
-              <input id="create-name" type="text" value="Игрок" maxlength="16" class="input" style="width:120px;">
+              <input id="create-name" type="text" value="${dn}" maxlength="16" class="input" style="width:120px;">
             </label>
             <label class="field">
               <span>Поле:</span>
@@ -958,7 +999,7 @@ export class Overlay {
             <div style="font-size:1.2rem; font-weight:bold; color:#2A9D8F;" class="mb-1">Присоединиться</div>
             <label class="field">
               <span>Имя:</span>
-              <input id="join-name" type="text" value="Игрок" maxlength="16" class="input" style="width:120px;">
+              <input id="join-name" type="text" value="${dn}" maxlength="16" class="input" style="width:120px;">
             </label>
             <label class="field">
               <span>Код:</span>
@@ -973,7 +1014,7 @@ export class Overlay {
     `;
 
     document.getElementById('create-btn')!.addEventListener('click', () => {
-      const name = (document.getElementById('create-name') as HTMLInputElement).value.trim() || 'Игрок';
+      const name = (document.getElementById('create-name') as HTMLInputElement).value.trim() || dn;
       const cols = parseInt((document.getElementById('create-cols') as HTMLInputElement).value) || 8;
       const rows = parseInt((document.getElementById('create-rows') as HTMLInputElement).value) || 8;
       const playerCount = parseInt((document.getElementById('create-players') as HTMLSelectElement).value) || 2;
@@ -984,7 +1025,7 @@ export class Overlay {
     });
 
     document.getElementById('join-btn')!.addEventListener('click', () => {
-      const name = (document.getElementById('join-name') as HTMLInputElement).value.trim() || 'Игрок';
+      const name = (document.getElementById('join-name') as HTMLInputElement).value.trim() || dn;
       const code = (document.getElementById('join-code') as HTMLInputElement).value.trim().toUpperCase();
       if (code.length !== 4) return;
       this.container.innerHTML = '';
@@ -1010,7 +1051,8 @@ export class Overlay {
     this.container.innerHTML = `
       <div class="screen">
         <div class="subtitle mb-2">Код комнаты:</div>
-        <div style="font-size:4rem; font-weight:bold; letter-spacing:0.5em; color:#457B9D;" class="mb-4">${roomCode}</div>
+        <div style="font-size:4rem; font-weight:bold; letter-spacing:0.5em; color:#457B9D;" class="mb-2">${roomCode}</div>
+        <button id="copy-invite-btn" class="btn btn-ghost" style="margin-bottom:1rem; font-size:0.9rem;">Скопировать ссылку</button>
         <div class="subtitle mb-1">Поле ${config.cols}x${config.rows}, ${config.startingUnits} юн., обзор ${config.visionRadius}</div>
         <div style="font-size:1.2rem;" class="mb-1">Игроки (${players.length}/${config.playerCount}):</div>
         <div id="waiting-players" class="mb-4" style="min-width:200px;">
@@ -1020,6 +1062,15 @@ export class Overlay {
         <button id="leave-room-btn" class="btn btn-ghost">Покинуть</button>
       </div>
     `;
+    document.getElementById('copy-invite-btn')!.addEventListener('click', () => {
+      const url = `${window.location.origin}/join/${roomCode}`;
+      navigator.clipboard.writeText(url).then(() => {
+        const btn = document.getElementById('copy-invite-btn')!;
+        btn.textContent = 'Скопировано!';
+        setTimeout(() => { btn.textContent = 'Скопировать ссылку'; }, 2000);
+      });
+    });
+
     document.getElementById('leave-room-btn')!.addEventListener('click', () => {
       this.container.innerHTML = '';
       onLeave();

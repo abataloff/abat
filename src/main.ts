@@ -20,6 +20,14 @@ const overlay = new Overlay(overlayEl);
 // Entry point: mode selection
 // ============================================================
 
+const GUEST_PREFIXES = ['Воин', 'Рыцарь', 'Маг', 'Лучник', 'Следопыт', 'Страж', 'Берсерк', 'Друид', 'Паладин', 'Шаман'];
+
+function generateGuestName(): string {
+  const prefix = GUEST_PREFIXES[Math.floor(Math.random() * GUEST_PREFIXES.length)];
+  const num = Math.floor(Math.random() * 900) + 100;
+  return `${prefix}-${num}`;
+}
+
 let currentUser: { id: number; name: string; nickname?: string | null; email: string; avatarUrl?: string; isAdmin: boolean } | null = null;
 
 async function fetchUser(): Promise<void> {
@@ -45,6 +53,11 @@ async function onSetNickname(nickname: string): Promise<void> {
   }
 }
 
+function getDefaultName(): string {
+  if (currentUser) return currentUser.nickname || currentUser.name;
+  return generateGuestName();
+}
+
 function showMainMenu(): void {
   statusBar.innerHTML = '';
   overlay.showModeSelect(
@@ -54,6 +67,7 @@ function showMainMenu(): void {
       onCreate: onCreateRoom,
       onJoin: onJoinRoom,
       onBack: showMainMenu,
+      defaultName: getDefaultName(),
     }),
     currentUser,
     () => { window.location.href = '/auth/google'; },
@@ -88,7 +102,17 @@ async function tryReconnect(): Promise<boolean> {
 
 fetchUser().then(async () => {
   const reconnected = await tryReconnect();
-  if (!reconnected) showMainMenu();
+  if (reconnected) return;
+
+  const joinMatch = window.location.pathname.match(/^\/join\/([A-Za-z0-9]{4})$/);
+  if (joinMatch) {
+    const roomCode = joinMatch[1].toUpperCase();
+    history.replaceState(null, '', '/');
+    const defaultName = getDefaultName();
+    overlay.showInviteJoin(roomCode, defaultName, onJoinRoom, showMainMenu);
+  } else {
+    showMainMenu();
+  }
 });
 
 // ============================================================
