@@ -756,14 +756,17 @@ export class Overlay {
     onHotseat: () => void,
     onAi: () => void,
     onOnline: () => void,
-    user?: { name: string; avatarUrl?: string } | null,
+    user?: { name: string; nickname?: string | null; avatarUrl?: string } | null,
     onLogin?: () => void,
     onLogout?: () => void,
+    onSetNickname?: (nickname: string) => void,
   ): void {
+    const displayName = user ? this.escapeHtml(user.nickname || user.name) : '';
     const userHtml = user
       ? `<div id="user-block" class="user-bar">
           ${user.avatarUrl ? `<img src="${user.avatarUrl}" alt="">` : ''}
-          <span style="font-size:0.85rem; opacity:0.8;">${this.escapeHtml(user.name)}</span>
+          <span style="font-size:0.85rem; opacity:0.8;">${displayName}</span>
+          <button id="btn-edit-nick" class="btn btn-sm btn-ghost" title="Изменить ник" style="font-family:monospace; padding:2px 8px; font-size:0.9rem;">&#9998;</button>
           <a id="btn-my-games" href="/my-games" class="btn btn-sm btn-ghost" style="text-decoration:none; font-family:monospace; --accent:#457B9D;">Мои игры</a>
           <button id="btn-logout" class="btn btn-sm btn-danger" style="font-family:monospace;">Выйти</button>
         </div>`
@@ -776,6 +779,14 @@ export class Overlay {
     this.container.innerHTML = `
       <div class="screen">
         ${userHtml}
+        <div id="nickname-popup" style="display:none; position:absolute; top:50px; right:10px; background:var(--bg-card, #1a1a2e); border:1px solid var(--border-subtle, #333); border-radius:8px; padding:12px; z-index:100; min-width:220px;">
+          <div style="font-size:0.85rem; margin-bottom:8px; opacity:0.7;">Никнейм (макс. 20 символов)</div>
+          <input id="nickname-input" type="text" maxlength="20" class="input" style="width:100%; margin-bottom:8px;" placeholder="Введите ник">
+          <div style="display:flex; gap:6px; justify-content:flex-end;">
+            <button id="nickname-cancel" class="btn btn-sm btn-ghost">Отмена</button>
+            <button id="nickname-save" class="btn btn-sm btn-primary" style="--accent:#457B9D;">Сохранить</button>
+          </div>
+        </div>
         <div class="title mb-2">ABAT</div>
         <div class="subtitle" style="margin-bottom:3rem;">Стратегическая игра</div>
         <div class="flex-col gap-md" style="min-width:280px;">
@@ -803,6 +814,28 @@ export class Overlay {
     document.getElementById('btn-logout')?.addEventListener('click', () => {
       if (onLogout) onLogout();
     });
+
+    // Nickname edit popup
+    const editBtn = document.getElementById('btn-edit-nick');
+    const popup = document.getElementById('nickname-popup');
+    const nickInput = document.getElementById('nickname-input') as HTMLInputElement | null;
+    if (editBtn && popup && nickInput && onSetNickname) {
+      editBtn.addEventListener('click', () => {
+        nickInput.value = user?.nickname || '';
+        popup.style.display = popup.style.display === 'none' ? 'block' : 'none';
+        if (popup.style.display === 'block') nickInput.focus();
+      });
+      document.getElementById('nickname-cancel')!.addEventListener('click', () => {
+        popup.style.display = 'none';
+      });
+      document.getElementById('nickname-save')!.addEventListener('click', () => {
+        const val = nickInput.value.trim();
+        if (val.length > 0) {
+          popup.style.display = 'none';
+          onSetNickname(val);
+        }
+      });
+    }
   }
 
   private escapeHtml(text: string): string {

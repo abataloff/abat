@@ -20,7 +20,7 @@ const overlay = new Overlay(overlayEl);
 // Entry point: mode selection
 // ============================================================
 
-let currentUser: { id: number; name: string; email: string; avatarUrl?: string; isAdmin: boolean } | null = null;
+let currentUser: { id: number; name: string; nickname?: string | null; email: string; avatarUrl?: string; isAdmin: boolean } | null = null;
 
 async function fetchUser(): Promise<void> {
   try {
@@ -29,6 +29,19 @@ async function fetchUser(): Promise<void> {
     currentUser = data.user;
   } catch {
     currentUser = null;
+  }
+}
+
+async function onSetNickname(nickname: string): Promise<void> {
+  const res = await fetch('/api/me/nickname', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname }),
+  });
+  const data = await res.json();
+  if (data.ok && currentUser) {
+    currentUser.nickname = data.nickname;
+    showMainMenu();
   }
 }
 
@@ -49,6 +62,7 @@ function showMainMenu(): void {
       currentUser = null;
       showMainMenu();
     },
+    onSetNickname,
   );
 }
 

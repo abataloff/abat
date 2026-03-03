@@ -24,6 +24,23 @@ export function initDb(): void {
       last_login TEXT NOT NULL DEFAULT (datetime('now'))
     );
 
+    -- Migration: add nickname column
+    CREATE TABLE IF NOT EXISTS _migrations (name TEXT PRIMARY KEY);
+    INSERT OR IGNORE INTO _migrations (name) VALUES ('add_nickname');
+  `);
+
+  const hasNickname = db.prepare(
+    "SELECT 1 FROM _migrations WHERE name = 'add_nickname'",
+  ).get();
+  if (hasNickname) {
+    const cols = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+    if (!cols.some((c) => c.name === 'nickname')) {
+      db.exec('ALTER TABLE users ADD COLUMN nickname TEXT');
+    }
+  }
+
+  db.exec(`
+
     CREATE TABLE IF NOT EXISTS games (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       room_code TEXT NOT NULL,
@@ -60,6 +77,7 @@ export interface DbUser {
   google_id: string | null;
   email: string | null;
   name: string;
+  nickname: string | null;
   avatar_url: string | null;
   is_admin: number;
   created_at: string;
@@ -85,6 +103,10 @@ export function upsertGoogleUser(googleId: string, email: string, name: string, 
 
 export function getUserById(id: number): DbUser | undefined {
   return db.prepare('SELECT * FROM users WHERE id = ?').get(id) as DbUser | undefined;
+}
+
+export function updateNickname(userId: number, nickname: string | null): void {
+  db.prepare('UPDATE users SET nickname = ? WHERE id = ?').run(nickname, userId);
 }
 
 export function getAllUsers(): DbUser[] {

@@ -1,7 +1,7 @@
 import type { IncomingMessage, ServerResponse } from 'node:http';
 import https from 'node:https';
 import jwt from 'jsonwebtoken';
-import { upsertGoogleUser, getUserById, DbUser } from './db';
+import { upsertGoogleUser, getUserById, updateNickname, DbUser } from './db';
 import { addRoute, sendJson, redirect } from './router';
 
 const GOOGLE_CLIENT_ID = process.env.GOOGLE_CLIENT_ID || '';
@@ -156,11 +156,49 @@ export function registerAuthRoutes(): void {
       user: {
         id: user.id,
         name: user.name,
+        nickname: user.nickname,
         email: user.email,
         avatarUrl: user.avatar_url,
         isAdmin: !!user.is_admin,
       },
     });
+  });
+
+  // Update nickname
+  addRoute('POST', '/api/me/nickname', async (req, res) => {
+    const user = getUserFromRequest(req);
+    if (!user) {
+      sendJson(res, { error: 'Unauthorized' }, 401);
+      return;
+    }
+
+    const body = await new Promise<string>((resolve) => {
+      let data = '';
+      req.on('data', (chunk) => { data += chunk; });
+      req.on('end', () => resolve(data));
+    });
+
+    let parsed: { nickname?: string };
+    try {
+      parsed = JSON.parse(body);
+    } catch {
+      sendJson(res, { error: 'Invalid JSON' }, 400);
+      return;
+    }
+
+    if (typeof parsed.nickname !== 'string') {
+      sendJson(res, { error: 'nickname is required' }, 400);
+      return;
+    }
+
+    const nickname = parsed.nickname.trim().slice(0, 20);
+    if (nickname.length === 0) {
+      sendJson(res, { error: 'nickname must not be empty' }, 400);
+      return;
+    }
+
+    updateNickname(user.id, nickname);
+    sendJson(res, { ok: true, nickname });
   });
 
   // Logout

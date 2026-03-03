@@ -89,6 +89,7 @@ async function loadUsers() {
     '<tr>' +
     '<td>' + u.id + '</td>' +
     '<td>' + (u.avatar_url ? '<img class="avatar" src="' + u.avatar_url + '">' : '') + esc(u.name) + '</td>' +
+    '<td>' + esc(u.nickname || '-') + '</td>' +
     '<td>' + esc(u.email || '-') + '</td>' +
     '<td>' + (u.is_admin ? 'Да' : 'Нет') + '</td>' +
     '<td>' + u.created_at + '</td>' +
@@ -96,7 +97,7 @@ async function loadUsers() {
     '</tr>'
   ).join('');
   document.getElementById('content').innerHTML =
-    '<table><tr><th>ID</th><th>Имя</th><th>Email</th><th>Админ</th><th>Регистрация</th><th>Последний вход</th></tr>' + rows + '</table>';
+    '<table><tr><th>ID</th><th>Имя</th><th>Никнейм</th><th>Email</th><th>Админ</th><th>Регистрация</th><th>Последний вход</th></tr>' + rows + '</table>';
 }
 
 async function loadGames() {
