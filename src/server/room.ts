@@ -40,6 +40,10 @@ export class Room {
     return this.game !== null;
   }
 
+  get hostName(): string {
+    return this.players[0]?.name ?? '';
+  }
+
   addPlayer(ws: WebSocket, name: string, userId: number | null = null): number | null {
     if (this.players.length >= this.config.playerCount) return null;
     if (this.game) return null;

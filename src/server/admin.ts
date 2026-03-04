@@ -2,6 +2,7 @@ import type { IncomingMessage, ServerResponse } from 'node:http';
 import { getUserFromRequest } from './auth';
 import { getAllUsers, getGames, getGame, getGameTurns, getGamePlayers, getUserGames } from './db';
 import { addRoute, sendJson } from './router';
+import { getWaitingRooms } from './game';
 
 function requireAdmin(req: IncomingMessage, res: ServerResponse): boolean {
   const user = getUserFromRequest(req);
@@ -281,6 +282,9 @@ function handleMyGamesApi(req: IncomingMessage, res: ServerResponse): void {
 }
 
 export function registerAdminRoutes(): void {
+  addRoute('GET', '/api/rooms', (_req, res) => {
+    sendJson(res, { rooms: getWaitingRooms() });
+  });
   addRoute('GET', '/my-games', handleMyGamesPage);
   addRoute('GET', '/api/my-games', handleMyGamesApi);
   addRoute('GET', '/admin', handleAdminPage);

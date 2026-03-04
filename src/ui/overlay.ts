@@ -1009,9 +1009,60 @@ export class Overlay {
           </div>
         </div>
 
+        <div style="width:100%; max-width:600px; margin-top:2rem;">
+          <div style="font-size:1.2rem; font-weight:bold; margin-bottom:0.5rem;">Открытые комнаты</div>
+          <div id="room-list" style="opacity:0.5;">Загрузка...</div>
+        </div>
+
         <button id="lobby-back-btn" class="btn btn-ghost" style="margin-top:2rem;">Назад</button>
       </div>
     `;
+
+    let roomListInterval: ReturnType<typeof setInterval> | null = null;
+
+    const loadRooms = async () => {
+      try {
+        const res = await fetch('/api/rooms');
+        const data = await res.json();
+        const listEl = document.getElementById('room-list');
+        if (!listEl) return;
+        if (data.rooms.length === 0) {
+          listEl.innerHTML = '<div style="opacity:0.5; padding:0.5rem 0;">Нет открытых комнат</div>';
+          return;
+        }
+        listEl.innerHTML = data.rooms.map((r: { code: string; hostName: string; playerCount: number; maxPlayers: number; config: { cols: number; rows: number } }) =>
+          `<div class="flex-row" style="justify-content:space-between; padding:0.4rem 0.6rem; background:rgba(255,255,255,0.03); border-radius:6px; margin-bottom:0.3rem;">
+            <div style="display:flex; gap:0.8rem; align-items:center; flex-wrap:wrap;">
+              <span style="font-weight:bold;">${r.hostName}</span>
+              <span style="opacity:0.5;">${r.config.cols}x${r.config.rows}</span>
+              <span style="opacity:0.5;">${r.playerCount}/${r.maxPlayers}</span>
+            </div>
+            <button class="btn btn-primary room-join-btn" data-code="${r.code}" style="--accent:#2A9D8F; padding:0.3rem 0.8rem; font-size:0.85rem;">Войти</button>
+          </div>`
+        ).join('');
+        listEl.querySelectorAll('.room-join-btn').forEach((btn) => {
+          btn.addEventListener('click', () => {
+            const code = (btn as HTMLElement).dataset.code!;
+            const name = (document.getElementById('join-name') as HTMLInputElement).value.trim() || dn;
+            cleanupInterval();
+            this.container.innerHTML = '';
+            callbacks.onJoin(code, name);
+          });
+        });
+      } catch {
+        // ignore fetch errors
+      }
+    };
+
+    const cleanupInterval = () => {
+      if (roomListInterval !== null) {
+        clearInterval(roomListInterval);
+        roomListInterval = null;
+      }
+    };
+
+    loadRooms();
+    roomListInterval = setInterval(loadRooms, 5000);
 
     document.getElementById('create-btn')!.addEventListener('click', () => {
       const name = (document.getElementById('create-name') as HTMLInputElement).value.trim() || dn;
@@ -1020,6 +1071,7 @@ export class Overlay {
       const playerCount = parseInt((document.getElementById('create-players') as HTMLSelectElement).value) || 2;
       const startingUnits = parseInt((document.getElementById('create-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('create-vision') as HTMLInputElement).value) || 2;
+      cleanupInterval();
       this.container.innerHTML = '';
       callbacks.onCreate({ cols, rows, playerCount, startingUnits, visionRadius }, name);
     });
@@ -1028,11 +1080,13 @@ export class Overlay {
       const name = (document.getElementById('join-name') as HTMLInputElement).value.trim() || dn;
       const code = (document.getElementById('join-code') as HTMLInputElement).value.trim().toUpperCase();
       if (code.length !== 4) return;
+      cleanupInterval();
       this.container.innerHTML = '';
       callbacks.onJoin(code, name);
     });
 
     document.getElementById('lobby-back-btn')!.addEventListener('click', () => {
+      cleanupInterval();
       this.container.innerHTML = '';
       callbacks.onBack();
     });

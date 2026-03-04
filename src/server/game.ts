@@ -159,6 +159,33 @@ function handleDisconnect(ws: WebSocket): void {
   wsUsers.delete(ws);
 }
 
+export function getWaitingRooms(): {
+  code: string;
+  hostName: string;
+  playerCount: number;
+  maxPlayers: number;
+  config: { cols: number; rows: number; startingUnits: number; visionRadius: number };
+}[] {
+  const result: ReturnType<typeof getWaitingRooms> = [];
+  for (const room of rooms.values()) {
+    if (!room.isStarted && room.playerCount < room.config.playerCount) {
+      result.push({
+        code: room.code,
+        hostName: room.hostName,
+        playerCount: room.playerCount,
+        maxPlayers: room.config.playerCount,
+        config: {
+          cols: room.config.cols,
+          rows: room.config.rows,
+          startingUnits: room.config.startingUnits,
+          visionRadius: room.config.visionRadius,
+        },
+      });
+    }
+  }
+  return result;
+}
+
 export function setupWebSocket(wss: WebSocketServer): void {
   // Cleanup empty rooms periodically
   setInterval(() => {
