@@ -859,36 +859,154 @@ export class Overlay {
           <div class="rules-section mb-3">
             <div class="rules-heading">Поле и юниты</div>
             <p>Игра идет на прямоугольной сетке. У каждого игрока есть стартовый отряд юнитов.</p>
+            <div class="rules-diagram">
+              <div class="rules-grid" style="grid-template-columns:repeat(5,1fr);">
+                <div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">12</div></div><div class="rules-cell"></div><div class="rules-cell"></div>
+                <div class="rules-cell"></div><div class="rules-cell"><div class="rules-unit rules-unit-neutral">2</div></div><div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"></div>
+                <div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"><div class="rules-unit rules-unit-neutral">1</div></div><div class="rules-cell"></div>
+                <div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"><div class="rules-unit rules-unit-neutral">3</div></div><div class="rules-cell"></div><div class="rules-cell"></div>
+                <div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"></div><div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">15</div></div>
+              </div>
+              <div class="rules-diagram-caption">
+                <span class="flex-row" style="gap:4px;"><span class="dot" style="background:#E63946;"></span> Красный</span>
+                <span class="flex-row" style="gap:4px;"><span class="dot" style="background:#457B9D;"></span> Синий</span>
+                <span class="flex-row" style="gap:4px;"><span class="dot" style="background:#888;"></span> Нейтральные</span>
+              </div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
             <div class="rules-heading">Нейтральные отряды (Серые)</div>
             <p>На поле случайным образом расставлены нейтральные отряды серого цвета (1-3 юнита каждый, примерно 15% клеток). Нейтралы не двигаются и не атакуют. Когда отряд игрока входит на клетку с нейтралами, он поглощает их юнитов без боя - они просто присоединяются к отряду.</p>
+            <div class="rules-diagram">
+              <div class="rules-example-row">
+                <div class="rules-mini-grid">
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">10</div></div>
+                  <div class="rules-cell rules-cell-arrow">\u2192</div>
+                  <div class="rules-cell"><div class="rules-unit rules-unit-neutral">3</div></div>
+                </div>
+                <div class="rules-arrow-big">\u2192</div>
+                <div class="rules-mini-grid">
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">13</div></div>
+                </div>
+              </div>
+              <div class="rules-diagram-caption">Нейтралы поглощаются без боя: 10 + 3 = 13</div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
             <div class="rules-heading">Ходы</div>
             <p>Все игроки отдают приказы одновременно. За ход можно отправить любое количество приказов на перемещение. Каждый приказ двигает отряд (или его часть) на одну клетку в любом из 8 направлений.</p>
+            <div class="rules-diagram">
+              <div class="rules-compass">
+                <span class="rules-dir" style="grid-area:nw;">\u2196</span>
+                <span class="rules-dir" style="grid-area:n;">\u2191</span>
+                <span class="rules-dir" style="grid-area:ne;">\u2197</span>
+                <span class="rules-dir" style="grid-area:w;">\u2190</span>
+                <span class="rules-dir rules-dir-center"><div class="rules-unit" style="--c:#E63946;">8</div></span>
+                <span class="rules-dir" style="grid-area:e;">\u2192</span>
+                <span class="rules-dir" style="grid-area:sw;">\u2199</span>
+                <span class="rules-dir" style="grid-area:s;">\u2193</span>
+                <span class="rules-dir" style="grid-area:se;">\u2198</span>
+              </div>
+              <div class="rules-diagram-caption">8 возможных направлений движения</div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
             <div class="rules-heading">Разделение отряда</div>
             <p>При отправке приказа можно разделить отряд - отправить только часть юнитов, оставив остальных на месте.</p>
+            <div class="rules-diagram">
+              <div class="rules-example-row">
+                <div class="rules-mini-grid">
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">20</div></div>
+                </div>
+                <div class="rules-arrow-big">\u2192</div>
+                <div class="rules-mini-grid" style="grid-template-columns:repeat(2,1fr);">
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">5</div></div>
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"></div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">15</div></div>
+                </div>
+              </div>
+              <div class="rules-diagram-caption">Отряд из 20 разделен: 5 идут на север, 15 остаются</div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
             <div class="rules-heading">Бой</div>
             <p>Бой происходит автоматически, когда отряды разных игроков оказываются на одной клетке.</p>
-            <ul class="rules-list">
-              <li><b>Неравные силы:</b> побеждает сильнейший, теряя половину юнитов слабейшего (округление вниз).</li>
-              <li><b>Равные силы:</b> победитель определяется случайно, у него остается 15% юнитов (минимум 1).</li>
-              <li><b>Несколько сторон:</b> побеждает сильнейший, теряя половину суммы юнитов всех проигравших. При равенстве сильнейших - случайный победитель с 15% юнитов.</li>
-            </ul>
+
+            <div class="rules-combat-example mb-2">
+              <div class="rules-combat-title">Неравные силы</div>
+              <div class="rules-example-row">
+                <div class="rules-mini-grid">
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">12</div></div>
+                  <div class="rules-cell rules-cell-vs">vs</div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">6</div></div>
+                </div>
+                <div class="rules-arrow-big">\u2192</div>
+                <div class="rules-combat-result">
+                  <div class="rules-unit" style="--c:#E63946;">9</div>
+                  <div style="font-size:0.75rem; opacity:0.5; margin-top:4px;">12 - \u230A6/2\u230B = 9</div>
+                </div>
+              </div>
+              <div class="rules-diagram-caption">Побеждает сильнейший, теряя \u230Aслабый/2\u230B юнитов</div>
+            </div>
+
+            <div class="rules-combat-example mb-2">
+              <div class="rules-combat-title">Равные силы</div>
+              <div class="rules-example-row">
+                <div class="rules-mini-grid">
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">10</div></div>
+                  <div class="rules-cell rules-cell-vs">vs</div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">10</div></div>
+                </div>
+                <div class="rules-arrow-big">\u2192</div>
+                <div class="rules-combat-result">
+                  <div class="rules-unit" style="--c:#E63946;">2</div>
+                  <div style="font-size:0.7rem; opacity:0.5; margin-top:4px;">случайный победитель</div>
+                  <div style="font-size:0.7rem; opacity:0.5;">\u230810 \u00D7 0.15\u2309 = 2</div>
+                </div>
+              </div>
+              <div class="rules-diagram-caption">Победитель случайный, остается 15% юнитов (мин. 1)</div>
+            </div>
+
+            <div class="rules-combat-example">
+              <div class="rules-combat-title">Несколько сторон</div>
+              <div class="rules-example-row">
+                <div class="rules-mini-grid" style="grid-template-columns:repeat(2,1fr);">
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#E63946;">8</div></div>
+                  <div class="rules-cell"><div class="rules-unit" style="--c:#457B9D;">4</div></div>
+                  <div class="rules-cell" style="grid-column:span 2;"><div class="rules-unit" style="--c:#2A9D8F;">3</div></div>
+                </div>
+                <div class="rules-arrow-big">\u2192</div>
+                <div class="rules-combat-result">
+                  <div class="rules-unit" style="--c:#E63946;">5</div>
+                  <div style="font-size:0.75rem; opacity:0.5; margin-top:4px;">8 - \u230A(4+3)/2\u230B = 5</div>
+                </div>
+              </div>
+              <div class="rules-diagram-caption">Сильнейший побеждает, теряя \u230Aсумма_слабых/2\u230B</div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
             <div class="rules-heading">Туман войны</div>
             <p>Каждый игрок видит только клетки в радиусе обзора от своих отрядов. Вражеские юниты за пределами обзора скрыты.</p>
+            <div class="rules-diagram">
+              <div class="rules-grid rules-fog-grid" style="grid-template-columns:repeat(5,1fr);">
+                <div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-fog"></div>
+                <div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-fog"></div>
+                <div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-vis"><div class="rules-unit" style="--c:#E63946;">8</div></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div>
+                <div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-fog"></div>
+                <div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-dim"></div><div class="rules-cell rules-cell-fog"></div><div class="rules-cell rules-cell-fog"><div class="rules-unit rules-unit-hidden">?</div></div>
+              </div>
+              <div class="rules-diagram-caption">Радиус обзора = 2. Враги за пределами обзора скрыты</div>
+            </div>
           </div>
 
           <div class="rules-section mb-3">
