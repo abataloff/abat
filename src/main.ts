@@ -77,6 +77,7 @@ function showMainMenu(): void {
       showMainMenu();
     },
     onSetNickname,
+    () => overlay.showRules(showMainMenu),
   );
 }
 

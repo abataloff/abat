@@ -760,6 +760,7 @@ export class Overlay {
     onLogin?: () => void,
     onLogout?: () => void,
     onSetNickname?: (nickname: string) => void,
+    onRules?: () => void,
   ): void {
     const displayName = user ? this.escapeHtml(user.nickname || user.name) : '';
     const userHtml = user
@@ -793,6 +794,7 @@ export class Overlay {
           <button id="mode-hotseat" class="btn btn-primary btn-lg" style="--accent:#457B9D;">Локальная игра</button>
           <button id="mode-ai" class="btn btn-primary btn-lg" style="--accent:#E9C46A;">Против компьютера</button>
           <button id="mode-online" class="btn btn-primary btn-lg" style="--accent:#2A9D8F;">Сетевая игра</button>
+          <button id="mode-rules" class="btn btn-ghost" style="margin-top:0.5rem;">Правила</button>
         </div>
       </div>
     `;
@@ -807,6 +809,10 @@ export class Overlay {
     document.getElementById('mode-online')!.addEventListener('click', () => {
       this.container.innerHTML = '';
       onOnline();
+    });
+    document.getElementById('mode-rules')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      if (onRules) onRules();
     });
     document.getElementById('btn-login')?.addEventListener('click', () => {
       if (onLogin) onLogin();
@@ -836,6 +842,74 @@ export class Overlay {
         }
       });
     }
+  }
+
+  /** Show rules page */
+  showRules(onBack: () => void): void {
+    this.container.innerHTML = `
+      <div class="screen" style="overflow-y:auto; justify-content:flex-start; padding:2rem 1rem;">
+        <div style="max-width:640px; width:100%;">
+          <div style="font-size:2rem; font-weight:bold; text-align:center;" class="mb-4">Правила игры</div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Цель игры</div>
+            <p>Уничтожить все войска противников. Последний выживший игрок побеждает.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Поле и юниты</div>
+            <p>Игра идет на прямоугольной сетке. У каждого игрока есть стартовый отряд юнитов.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Нейтральные отряды (Серые)</div>
+            <p>На поле случайным образом расставлены нейтральные отряды серого цвета (1-3 юнита каждый, примерно 15% клеток). Нейтралы не двигаются и не атакуют. Когда отряд игрока входит на клетку с нейтралами, он поглощает их юнитов без боя - они просто присоединяются к отряду.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Ходы</div>
+            <p>Все игроки отдают приказы одновременно. За ход можно отправить любое количество приказов на перемещение. Каждый приказ двигает отряд (или его часть) на одну клетку в любом из 8 направлений.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Разделение отряда</div>
+            <p>При отправке приказа можно разделить отряд - отправить только часть юнитов, оставив остальных на месте.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Бой</div>
+            <p>Бой происходит автоматически, когда отряды разных игроков оказываются на одной клетке.</p>
+            <ul class="rules-list">
+              <li><b>Неравные силы:</b> побеждает сильнейший, теряя половину юнитов слабейшего (округление вниз).</li>
+              <li><b>Равные силы:</b> победитель определяется случайно, у него остается 15% юнитов (минимум 1).</li>
+              <li><b>Несколько сторон:</b> побеждает сильнейший, теряя половину суммы юнитов всех проигравших. При равенстве сильнейших - случайный победитель с 15% юнитов.</li>
+            </ul>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Туман войны</div>
+            <p>Каждый игрок видит только клетки в радиусе обзора от своих отрядов. Вражеские юниты за пределами обзора скрыты.</p>
+          </div>
+
+          <div class="rules-section mb-3">
+            <div class="rules-heading">Режимы игры</div>
+            <ul class="rules-list">
+              <li><b>Локальная игра</b> - hot-seat на одном устройстве, с экраном передачи хода.</li>
+              <li><b>Против компьютера</b> - игра с AI-противниками разной сложности.</li>
+              <li><b>Сетевая игра</b> - онлайн-мультиплеер через комнаты с кодами и приглашениями.</li>
+            </ul>
+          </div>
+
+          <div style="text-align:center; margin-top:1.5rem;">
+            <button id="rules-back-btn" class="btn btn-secondary btn-lg">Назад</button>
+          </div>
+        </div>
+      </div>
+    `;
+    document.getElementById('rules-back-btn')!.addEventListener('click', () => {
+      this.container.innerHTML = '';
+      onBack();
+    });
   }
 
   private escapeHtml(text: string): string {
