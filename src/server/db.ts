@@ -69,6 +69,27 @@ export function initDb(): void {
       orders TEXT NOT NULL,
       result TEXT NOT NULL
     );
+
+    CREATE TABLE IF NOT EXISTS feedback (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES users(id),
+      author_name TEXT NOT NULL,
+      type TEXT NOT NULL CHECK(type IN ('bug', 'feature')),
+      title TEXT NOT NULL,
+      description TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'new' CHECK(status IN ('new', 'planned', 'done', 'rejected')),
+      admin_response TEXT,
+      vote_count INTEGER NOT NULL DEFAULT 0,
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+
+    CREATE TABLE IF NOT EXISTS feedback_votes (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      feedback_id INTEGER NOT NULL REFERENCES feedback(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES users(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      UNIQUE(feedback_id, user_id)
+    );
   `);
 }
 
@@ -228,4 +249,68 @@ export interface DbGamePlayer {
 
 export function getGamePlayers(gameId: number): DbGamePlayer[] {
   return db.prepare('SELECT * FROM game_players WHERE game_id = ? ORDER BY player_index').all(gameId) as DbGamePlayer[];
+}
+
+// ── Feedback ──
+
+export interface DbFeedback {
+  id: number;
+  user_id: number | null;
+  author_name: string;
+  type: string;
+  title: string;
+  description: string;
+  status: string;
+  admin_response: string | null;
+  vote_count: number;
+  created_at: string;
+}
+
+export function createFeedback(userId: number | null, authorName: string, type: string, title: string, description: string): number {
+  const result = db.prepare(
+    'INSERT INTO feedback (user_id, author_name, type, title, description) VALUES (?, ?, ?, ?, ?)',
+  ).run(userId, authorName, type, title, description);
+  return result.lastInsertRowid as number;
+}
+
+export function getFeedbackList(limit = 50, offset = 0): { items: DbFeedback[]; total: number } {
+  const total = (db.prepare('SELECT COUNT(*) as cnt FROM feedback').get() as { cnt: number }).cnt;
+  const items = db.prepare(
+    'SELECT * FROM feedback ORDER BY vote_count DESC, created_at DESC LIMIT ? OFFSET ?',
+  ).all(limit, offset) as DbFeedback[];
+  return { items, total };
+}
+
+export function getFeedbackById(id: number): DbFeedback | undefined {
+  return db.prepare('SELECT * FROM feedback WHERE id = ?').get(id) as DbFeedback | undefined;
+}
+
+export function voteFeedback(feedbackId: number, userId: number): boolean {
+  const existing = db.prepare(
+    'SELECT 1 FROM feedback_votes WHERE feedback_id = ? AND user_id = ?',
+  ).get(feedbackId, userId);
+  if (existing) {
+    db.prepare('DELETE FROM feedback_votes WHERE feedback_id = ? AND user_id = ?').run(feedbackId, userId);
+  } else {
+    db.prepare('INSERT INTO feedback_votes (feedback_id, user_id) VALUES (?, ?)').run(feedbackId, userId);
+  }
+  db.prepare(
+    'UPDATE feedback SET vote_count = (SELECT COUNT(*) FROM feedback_votes WHERE feedback_id = ?) WHERE id = ?',
+  ).run(feedbackId, feedbackId);
+  return !existing;
+}
+
+export function getUserVotedIds(userId: number): number[] {
+  const rows = db.prepare(
+    'SELECT feedback_id FROM feedback_votes WHERE user_id = ?',
+  ).all(userId) as { feedback_id: number }[];
+  return rows.map((r) => r.feedback_id);
+}
+
+export function updateFeedbackStatus(id: number, status: string, adminResponse: string | null): void {
+  db.prepare('UPDATE feedback SET status = ?, admin_response = ? WHERE id = ?').run(status, adminResponse, id);
+}
+
+export function deleteFeedback(id: number): void {
+  db.prepare('DELETE FROM feedback WHERE id = ?').run(id);
 }

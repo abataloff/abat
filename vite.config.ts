@@ -24,6 +24,9 @@ export default defineConfig({
       '/my-games': {
         target: 'http://localhost:8051',
       },
+      '/feedback': {
+        target: 'http://localhost:8051',
+      },
     },
   },
 });

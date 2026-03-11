@@ -5,12 +5,14 @@ import { initDb } from './db';
 import { matchRoute, sendJson } from './router';
 import { registerAuthRoutes, getUserFromRequest } from './auth';
 import { registerAdminRoutes } from './admin';
+import { registerFeedbackRoutes } from './feedback';
 
 const PORT = Number(process.env.PORT) || 8051;
 
 initDb();
 registerAuthRoutes();
 registerAdminRoutes();
+registerFeedbackRoutes();
 
 const server = createServer((req, res) => {
   const method = req.method || 'GET';

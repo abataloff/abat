@@ -796,6 +796,7 @@ export class Overlay {
           <button id="mode-ai" class="btn btn-primary btn-lg" style="--accent:#E9C46A;">Против компьютера</button>
           <button id="mode-online" class="btn btn-primary btn-lg" style="--accent:#2A9D8F;">Сетевая игра</button>
           <button id="mode-rules" class="btn btn-ghost" style="margin-top:0.5rem;">Правила</button>
+          <a href="/feedback" class="btn btn-ghost" style="text-decoration:none;">Обратная связь</a>
         </div>
       </div>
     `;

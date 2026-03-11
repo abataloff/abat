@@ -7,6 +7,7 @@ import { initDb } from './db';
 import { matchRoute } from './router';
 import { registerAuthRoutes, getUserFromRequest } from './auth';
 import { registerAdminRoutes } from './admin';
+import { registerFeedbackRoutes } from './feedback';
 
 const STATIC_DIR = join(__dirname, '../../dist');
 const PORT = Number(process.env.PORT) || 8051;
@@ -30,6 +31,7 @@ const MIME_TYPES: Record<string, string> = {
 initDb();
 registerAuthRoutes();
 registerAdminRoutes();
+registerFeedbackRoutes();
 
 const server = createServer((req, res) => {
   const method = req.method || 'GET';
