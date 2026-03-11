@@ -3,3 +3,6 @@ dist/
 dist-server/
 .playwright-mcp/
 .claude/
+screenshots/
+data/
+.env

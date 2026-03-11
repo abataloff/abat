@@ -212,6 +212,8 @@ function handleMyGamesPage(req: IncomingMessage, res: ServerResponse): void {
   .pagination button:disabled { opacity:0.3; cursor:default; }
   .back-link { display:inline-block; margin-bottom:1rem; }
   .empty { text-align:center; padding:3rem; opacity:0.5; }
+  .btn-join { display:inline-block; padding:0.2rem 0.6rem; background:#2A9D8F; color:#fff; border-radius:4px; font-size:0.8rem; }
+  .btn-join:hover { background:#238577; text-decoration:none; }
 </style>
 </head>
 <body>
@@ -241,12 +243,16 @@ async function load() {
     } else {
       result = '<span class="result-lose">Поражение</span>';
     }
+    const actions = g.status === 'playing'
+      ? '<a href="/join/' + esc(g.room_code) + '" class="btn-join">Подключиться</a>'
+      : '';
     return '<tr>' +
       '<td>' + esc(g.room_code) + '</td>' +
       '<td><span class="badge badge-' + g.status + '">' + g.status + '</span></td>' +
       '<td>' + g.turn_count + '</td>' +
       '<td>' + result + '</td>' +
       '<td>' + g.started_at + '</td>' +
+      '<td>' + actions + '</td>' +
       '</tr>';
   }).join('');
   const totalPages = Math.ceil(data.total / PAGE_SIZE);
@@ -256,7 +262,7 @@ async function load() {
     '<button ' + (page >= totalPages-1 ? 'disabled' : '') + ' onclick="page++;load()">Вперед</button>' +
     '</div>';
   document.getElementById('content').innerHTML =
-    '<table><tr><th>Комната</th><th>Статус</th><th>Ходов</th><th>Результат</th><th>Дата</th></tr>' + rows + '</table>' + pag;
+    '<table><tr><th>Комната</th><th>Статус</th><th>Ходов</th><th>Результат</th><th>Дата</th><th></th></tr>' + rows + '</table>' + pag;
 }
 
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }

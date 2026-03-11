@@ -1,31 +1,37 @@
 import { defineConfig } from 'vite';
 
+const VITE_PORT = Number(process.env.VITE_PORT) || 8050;
+const API_PORT = Number(process.env.PORT) || 8051;
+
+const apiTarget = `http://localhost:${API_PORT}`;
+const wsTarget = `ws://localhost:${API_PORT}`;
+
 export default defineConfig({
   root: '.',
   build: {
     outDir: 'dist',
   },
   server: {
-    port: 8050,
+    port: VITE_PORT,
     proxy: {
       '/ws': {
-        target: 'ws://localhost:8051',
+        target: wsTarget,
         ws: true,
       },
       '/auth': {
-        target: 'http://localhost:8051',
+        target: apiTarget,
       },
       '/api': {
-        target: 'http://localhost:8051',
+        target: apiTarget,
       },
       '/admin': {
-        target: 'http://localhost:8051',
+        target: apiTarget,
       },
       '/my-games': {
-        target: 'http://localhost:8051',
+        target: apiTarget,
       },
       '/feedback': {
-        target: 'http://localhost:8051',
+        target: apiTarget,
       },
     },
   },
