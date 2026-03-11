@@ -57,7 +57,7 @@ function handleAdminPage(req: IncomingMessage, res: ServerResponse): void {
 </style>
 </head>
 <body>
-<h1>ABAT Admin</h1>
+<div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem;"><h1 style="margin:0">ABAT Admin</h1><a href="/" style="color:#457B9D;text-decoration:none;font-size:0.9rem;">\u2190 На главную</a></div>
 <div class="tabs">
   <button class="tab active" data-tab="users">Пользователи</button>
   <button class="tab" data-tab="games">Игры</button>

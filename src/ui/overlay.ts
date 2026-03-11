@@ -756,7 +756,7 @@ export class Overlay {
     onHotseat: () => void,
     onAi: () => void,
     onOnline: () => void,
-    user?: { name: string; nickname?: string | null; avatarUrl?: string } | null,
+    user?: { name: string; nickname?: string | null; avatarUrl?: string; isAdmin?: boolean } | null,
     onLogin?: () => void,
     onLogout?: () => void,
     onSetNickname?: (nickname: string) => void,
@@ -769,6 +769,7 @@ export class Overlay {
           <span style="font-size:0.85rem; opacity:0.8;">${displayName}</span>
           <button id="btn-edit-nick" class="btn btn-sm btn-ghost" title="Изменить ник" style="font-family:monospace; padding:2px 8px; font-size:0.9rem;">&#9998;</button>
           <a id="btn-my-games" href="/my-games" class="btn btn-sm btn-ghost" style="text-decoration:none; font-family:monospace; --accent:#457B9D;">Мои игры</a>
+          ${user.isAdmin ? `<a href="/admin" class="btn btn-sm btn-ghost" style="text-decoration:none; font-family:monospace; --accent:#E76F51;">Админка</a>` : ''}
           <button id="btn-logout" class="btn btn-sm btn-danger" style="font-family:monospace;">Выйти</button>
         </div>`
       : (onLogin
