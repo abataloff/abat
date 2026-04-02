@@ -143,6 +143,11 @@ export class Overlay {
     getPlayerName: (id: number) => string,
     onContinue: () => void,
   ): void {
+    if (combats.length === 0 && eliminations.length === 0) {
+      onContinue();
+      return;
+    }
+
     let html = `<div class="panel-bottom gap-sm" style="max-height:60vh; overflow-y:auto;">`;
 
     if (combats.length === 0) {
