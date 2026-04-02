@@ -93,7 +93,7 @@ export class Game {
     this.events.emit('phase-changed', this._phase);
 
     const allOrders = [...this.pendingOrders.values()];
-    const result = resolveTurn(this.board, allOrders, this.rng, this._turnNumber);
+    const result = resolveTurn(this.board, allOrders, this.rng, this._turnNumber, this.config);
 
     // Mark eliminated players
     for (const pid of result.eliminations) {

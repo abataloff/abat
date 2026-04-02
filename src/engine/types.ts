@@ -51,6 +51,12 @@ export interface GameConfig {
   startingUnits: number;
   seed?: number;
   visionRadius: number;
+  /** Chance (0-1) per dark-zone cell per turn to spawn a neutral stack */
+  neutralSpawnChance?: number;
+  /** Min-max units for spawned neutral stacks [min, max] */
+  neutralSpawnUnits?: [number, number];
+  /** Maximum neutral stacks on the map at once */
+  maxNeutrals?: number;
 }
 
 export interface CombatResult {

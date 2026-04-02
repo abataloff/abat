@@ -1,7 +1,8 @@
-import { TurnOrders, MoveOrder, TurnResult, MovementResult, CombatResult, NEUTRAL_PLAYER_ID } from './types';
+import { TurnOrders, MoveOrder, TurnResult, MovementResult, CombatResult, GameConfig, NEUTRAL_PLAYER_ID } from './types';
 import { Board } from './board';
 import { Stack } from './stack';
 import { resolveCombat } from './combat';
+import { getVisibleCells } from './visibility';
 import { RNG } from '../util/random';
 
 interface PlannedMove {
@@ -47,6 +48,7 @@ export function resolveTurn(
   allOrders: TurnOrders[],
   rng: RNG,
   turnNumber: number,
+  config?: GameConfig,
 ): TurnResult {
   // Phase 1: Validate
   const validMoves: PlannedMove[] = [];
@@ -130,6 +132,45 @@ export function resolveTurn(
 
   // Phase 6: Cleanup dead stacks
   board.cleanup();
+
+  // Phase 6.5: Spawn neutrals in dark zones
+  if (config && config.neutralSpawnChance && config.neutralSpawnChance > 0) {
+    const spawnRange = config.neutralSpawnUnits ?? [1, 3];
+    const maxNeutrals = config.maxNeutrals ?? Infinity;
+
+    // Count current neutrals
+    let currentNeutrals = 0;
+    for (const pos of board.getOccupiedCells()) {
+      for (const s of board.getStacks(pos)) {
+        if (s.playerId === NEUTRAL_PLAYER_ID && s.alive) currentNeutrals++;
+      }
+    }
+
+    // Collect all player visible cells
+    const allVisible = new Set<string>();
+    const playerIds = new Set(allOrders.map((o) => o.playerId));
+    for (const pid of playerIds) {
+      if (board.getPlayerTotalUnits(pid) === 0) continue;
+      for (const key of getVisibleCells(board, pid, config.visionRadius)) {
+        allVisible.add(key);
+      }
+    }
+
+    // Try to spawn on dark (non-visible), empty cells
+    for (let y = 0; y < board.rows; y++) {
+      for (let x = 0; x < board.cols; x++) {
+        if (currentNeutrals >= maxNeutrals) break;
+        const key = `${x},${y}`;
+        if (allVisible.has(key)) continue;
+        if (board.getStacks({ x, y }).some((s) => s.alive)) continue;
+        if (rng.next() < config.neutralSpawnChance) {
+          const units = rng.nextInt(spawnRange[0], spawnRange[1]);
+          board.addStack({ x, y }, new Stack(NEUTRAL_PLAYER_ID, units));
+          currentNeutrals++;
+        }
+      }
+    }
+  }
 
   // Phase 7: Check eliminations
   const allPlayerIds = new Set<number>();

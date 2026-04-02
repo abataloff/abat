@@ -707,7 +707,7 @@ export class Overlay {
   }
 
   /** Show game setup screen */
-  showSetup(onStart: (config: { cols: number; rows: number; playerCount: number; startingUnits: number; visionRadius: number }) => void, onBack?: () => void): void {
+  showSetup(onStart: (config: { cols: number; rows: number; playerCount: number; startingUnits: number; visionRadius: number; neutralSpawnChance?: number; neutralSpawnUnits?: [number, number]; maxNeutrals?: number }) => void, onBack?: () => void): void {
     this.container.innerHTML = `
       <div class="screen">
         <div style="font-size:2rem; font-weight:700;" class="mb-4">Локальная игра</div>
@@ -736,6 +736,22 @@ export class Overlay {
             <span>Радиус обзора:</span>
             <input id="cfg-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px;">
           </label>
+          <label class="field">
+            <span>Спавн серых (%):</span>
+            <input id="cfg-neutral-chance" type="number" min="0" max="100" value="0" class="input" style="width:60px;">
+          </label>
+          <label class="field">
+            <span>Юниты серых (мин-макс):</span>
+            <span>
+              <input id="cfg-neutral-min" type="number" min="1" max="20" value="1" class="input" style="width:45px; padding:0.4rem;">
+              -
+              <input id="cfg-neutral-max" type="number" min="1" max="20" value="3" class="input" style="width:45px; padding:0.4rem;">
+            </span>
+          </label>
+          <label class="field">
+            <span>Макс. серых:</span>
+            <input id="cfg-max-neutrals" type="number" min="1" max="200" value="20" class="input" style="width:60px;">
+          </label>
           <button id="start-btn" class="btn btn-primary btn-lg" style="margin-top:1rem;">Начать игру</button>
           ${onBack ? '<button id="setup-back-btn" class="btn btn-ghost">Назад</button>' : ''}
         </div>
@@ -747,8 +763,19 @@ export class Overlay {
       const playerCount = parseInt((document.getElementById('cfg-players') as HTMLSelectElement).value) || 2;
       const startingUnits = parseInt((document.getElementById('cfg-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('cfg-vision') as HTMLInputElement).value) || 2;
+      const neutralChance = parseInt((document.getElementById('cfg-neutral-chance') as HTMLInputElement).value) || 0;
+      const neutralMin = parseInt((document.getElementById('cfg-neutral-min') as HTMLInputElement).value) || 1;
+      const neutralMax = parseInt((document.getElementById('cfg-neutral-max') as HTMLInputElement).value) || 3;
+      const maxNeutrals = parseInt((document.getElementById('cfg-max-neutrals') as HTMLInputElement).value) || 20;
       this.container.innerHTML = '';
-      onStart({ cols, rows, playerCount, startingUnits, visionRadius });
+      onStart({
+        cols, rows, playerCount, startingUnits, visionRadius,
+        ...(neutralChance > 0 ? {
+          neutralSpawnChance: neutralChance / 100,
+          neutralSpawnUnits: [neutralMin, neutralMax],
+          maxNeutrals,
+        } : {}),
+      });
     });
     document.getElementById('setup-back-btn')?.addEventListener('click', () => {
       this.container.innerHTML = '';
@@ -1044,7 +1071,7 @@ export class Overlay {
   }
 
   /** Show AI game setup screen */
-  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number }, aiDifficulty: AiDifficulty, aiCount: number, debugMode: boolean) => void, onBack: () => void, isAdmin = false): void {
+  showAiSetup(onStart: (config: { cols: number; rows: number; startingUnits: number; visionRadius: number; neutralSpawnChance?: number; neutralSpawnUnits?: [number, number]; maxNeutrals?: number }, aiDifficulty: AiDifficulty, aiCount: number, debugMode: boolean) => void, onBack: () => void, isAdmin = false): void {
     this.container.innerHTML = `
       <div class="screen">
         <div style="font-size:2rem; font-weight:bold;" class="mb-4">Против компьютера</div>
@@ -1081,6 +1108,22 @@ export class Overlay {
             <span>Радиус обзора:</span>
             <input id="ai-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px;">
           </label>
+          <label class="field">
+            <span>Спавн серых (%):</span>
+            <input id="ai-neutral-chance" type="number" min="0" max="100" value="0" class="input" style="width:60px;">
+          </label>
+          <label class="field">
+            <span>Юниты серых (мин-макс):</span>
+            <span>
+              <input id="ai-neutral-min" type="number" min="1" max="20" value="1" class="input" style="width:45px; padding:0.4rem;">
+              -
+              <input id="ai-neutral-max" type="number" min="1" max="20" value="3" class="input" style="width:45px; padding:0.4rem;">
+            </span>
+          </label>
+          <label class="field">
+            <span>Макс. серых:</span>
+            <input id="ai-max-neutrals" type="number" min="1" max="200" value="20" class="input" style="width:60px;">
+          </label>
           ${isAdmin ? `<label class="field">
             <span>Режим отладки (без тумана):</span>
             <input id="ai-debug" type="checkbox" style="width:20px; height:20px; accent-color:#E76F51; cursor:pointer;">
@@ -1097,9 +1140,20 @@ export class Overlay {
       const aiDifficulty = (document.getElementById('ai-difficulty') as HTMLSelectElement).value as AiDifficulty;
       const startingUnits = parseInt((document.getElementById('ai-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('ai-vision') as HTMLInputElement).value) || 2;
+      const neutralChance = parseInt((document.getElementById('ai-neutral-chance') as HTMLInputElement).value) || 0;
+      const neutralMin = parseInt((document.getElementById('ai-neutral-min') as HTMLInputElement).value) || 1;
+      const neutralMax = parseInt((document.getElementById('ai-neutral-max') as HTMLInputElement).value) || 3;
+      const maxNeutrals = parseInt((document.getElementById('ai-max-neutrals') as HTMLInputElement).value) || 20;
       const debugMode = (document.getElementById('ai-debug') as HTMLInputElement | null)?.checked ?? false;
       this.container.innerHTML = '';
-      onStart({ cols, rows, startingUnits, visionRadius }, aiDifficulty, aiCount, debugMode);
+      onStart({
+        cols, rows, startingUnits, visionRadius,
+        ...(neutralChance > 0 ? {
+          neutralSpawnChance: neutralChance / 100,
+          neutralSpawnUnits: [neutralMin, neutralMax],
+          maxNeutrals,
+        } : {}),
+      }, aiDifficulty, aiCount, debugMode);
     });
     document.getElementById('ai-back-btn')!.addEventListener('click', () => {
       this.container.innerHTML = '';
@@ -1190,6 +1244,22 @@ export class Overlay {
               <span>Обзор:</span>
               <input id="create-vision" type="number" min="1" max="20" value="2" class="input" style="width:60px; padding:0.4rem;">
             </label>
+            <label class="field">
+              <span>Серые (%):</span>
+              <input id="create-neutral-chance" type="number" min="0" max="100" value="0" class="input" style="width:60px; padding:0.4rem;">
+            </label>
+            <label class="field">
+              <span>Юниты серых:</span>
+              <span>
+                <input id="create-neutral-min" type="number" min="1" max="20" value="1" class="input" style="width:40px; padding:0.4rem;">
+                -
+                <input id="create-neutral-max" type="number" min="1" max="20" value="3" class="input" style="width:40px; padding:0.4rem;">
+              </span>
+            </label>
+            <label class="field">
+              <span>Макс. серых:</span>
+              <input id="create-max-neutrals" type="number" min="1" max="200" value="20" class="input" style="width:60px; padding:0.4rem;">
+            </label>
             <button id="create-btn" class="btn btn-primary" style="--accent:#457B9D; margin-top:0.5rem;">Создать</button>
           </div>
 
@@ -1270,9 +1340,20 @@ export class Overlay {
       const playerCount = parseInt((document.getElementById('create-players') as HTMLSelectElement).value) || 2;
       const startingUnits = parseInt((document.getElementById('create-units') as HTMLInputElement).value) || 20;
       const visionRadius = parseInt((document.getElementById('create-vision') as HTMLInputElement).value) || 2;
+      const neutralChance = parseInt((document.getElementById('create-neutral-chance') as HTMLInputElement).value) || 0;
+      const neutralMin = parseInt((document.getElementById('create-neutral-min') as HTMLInputElement).value) || 1;
+      const neutralMax = parseInt((document.getElementById('create-neutral-max') as HTMLInputElement).value) || 3;
+      const maxNeutrals = parseInt((document.getElementById('create-max-neutrals') as HTMLInputElement).value) || 20;
       cleanupInterval();
       this.container.innerHTML = '';
-      callbacks.onCreate({ cols, rows, playerCount, startingUnits, visionRadius }, name);
+      callbacks.onCreate({
+        cols, rows, playerCount, startingUnits, visionRadius,
+        ...(neutralChance > 0 ? {
+          neutralSpawnChance: neutralChance / 100,
+          neutralSpawnUnits: [neutralMin, neutralMax],
+          maxNeutrals,
+        } : {}),
+      }, name);
     });
 
     document.getElementById('join-btn')!.addEventListener('click', () => {
