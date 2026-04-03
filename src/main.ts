@@ -669,6 +669,7 @@ function setupNetworkHandlers(): void {
   netClient.on('player-joined', (msg) => {
     const m = msg as ServerMessage & { type: 'player-joined' };
     netPlayers = m.players;
+    overlay.hideDisconnectBanner();
     overlay.updateWaitingRoom(m.players);
     updateOnlineStatusBar();
   });
@@ -706,7 +707,13 @@ function setupNetworkHandlers(): void {
   netClient.on('player-disconnected', (msg) => {
     const m = msg as ServerMessage & { type: 'player-disconnected' };
     const player = netPlayers.find((p) => p.id === m.playerId);
-    if (player) player.connected = false;
+    if (player) {
+      player.connected = false;
+      overlay.showDisconnectBanner(player.name, () => {
+        cleanupOnline();
+        showMainMenu();
+      });
+    }
     updateOnlineStatusBar();
   });
 

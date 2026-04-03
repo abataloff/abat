@@ -1455,6 +1455,30 @@ export class Overlay {
     });
   }
 
+  /** Show non-blocking disconnect banner at the top */
+  showDisconnectBanner(playerName: string, onLeave: () => void): void {
+    const existing = document.getElementById('disconnect-banner');
+    if (existing) existing.remove();
+
+    const banner = document.createElement('div');
+    banner.id = 'disconnect-banner';
+    banner.style.cssText = 'position:fixed; top:0; left:0; right:0; z-index:1000; display:flex; align-items:center; justify-content:center; gap:1rem; padding:0.6rem 1rem; background:rgba(230,57,70,0.9); color:#fff; font-family:var(--font); font-size:0.9rem; backdrop-filter:blur(4px);';
+    banner.innerHTML = `
+      <span><strong>${playerName}</strong> отключился. Ожидание переподключения...</span>
+      <button id="disconnect-leave-btn" class="btn btn-ghost" style="color:#fff; border-color:rgba(255,255,255,0.4); padding:0.3rem 0.8rem; font-size:0.85rem;">Покинуть</button>
+    `;
+    document.body.appendChild(banner);
+    document.getElementById('disconnect-leave-btn')!.addEventListener('click', () => {
+      banner.remove();
+      onLeave();
+    });
+  }
+
+  /** Hide disconnect banner (e.g. on reconnect) */
+  hideDisconnectBanner(): void {
+    document.getElementById('disconnect-banner')?.remove();
+  }
+
   clear(): void {
     this.container.innerHTML = '';
   }
