@@ -102,18 +102,20 @@ async function tryReconnect(): Promise<boolean> {
 }
 
 fetchUser().then(async () => {
-  const reconnected = await tryReconnect();
-  if (reconnected) return;
-
   const joinMatch = window.location.pathname.match(/^\/join\/([A-Za-z0-9]{4})$/);
   if (joinMatch) {
+    clearNetSession();
     const roomCode = joinMatch[1].toUpperCase();
     history.replaceState(null, '', '/');
     const defaultName = getDefaultName();
     overlay.showInviteJoin(roomCode, defaultName, onJoinRoom, showMainMenu);
-  } else {
-    showMainMenu();
+    return;
   }
+
+  const reconnected = await tryReconnect();
+  if (reconnected) return;
+
+  showMainMenu();
 });
 
 // ============================================================
