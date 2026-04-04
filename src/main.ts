@@ -616,6 +616,7 @@ async function onJoinRoom(roomCode: string, playerName: string): Promise<void> {
 
 function cleanupOnline(): void {
   clearNetSession();
+  overlay.hideDisconnectBanner();
   if (netClient) {
     netClient.disconnect();
     netClient = null;
@@ -821,6 +822,7 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
   renderOnlineBoard();
 
   if (result.winnerId !== null) {
+    overlay.hideDisconnectBanner();
     overlay.showVictory(result.winnerId, () => {
       cleanupOnline();
       showMainMenu();
