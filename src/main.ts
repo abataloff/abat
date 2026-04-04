@@ -630,6 +630,7 @@ async function onJoinRoom(roomCode: string, playerName: string): Promise<void> {
 
 function cleanupOnline(): void {
   clearNetSession();
+  overlay.hideDisconnectBanner();
   if (netClient) {
     netClient.disconnect();
     netClient = null;
@@ -684,6 +685,7 @@ function setupNetworkHandlers(): void {
   netClient.on('player-joined', (msg) => {
     const m = msg as ServerMessage & { type: 'player-joined' };
     netPlayers = m.players;
+    overlay.hideDisconnectBanner();
     overlay.updateWaitingRoom(m.players);
     updateOnlineStatusBar();
   });
@@ -721,7 +723,13 @@ function setupNetworkHandlers(): void {
   netClient.on('player-disconnected', (msg) => {
     const m = msg as ServerMessage & { type: 'player-disconnected' };
     const player = netPlayers.find((p) => p.id === m.playerId);
-    if (player) player.connected = false;
+    if (player) {
+      player.connected = false;
+      overlay.showDisconnectBanner(player.name, () => {
+        cleanupOnline();
+        showMainMenu();
+      });
+    }
     updateOnlineStatusBar();
   });
 
@@ -747,6 +755,7 @@ function setupNetworkHandlers(): void {
 
   netClient.on('error', (msg) => {
     const m = msg as ServerMessage & { type: 'error' };
+    overlay.hideDisconnectBanner();
     overlay.showError(m.message, () => {
       cleanupOnline();
       showMainMenu();
@@ -837,6 +846,7 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
   renderOnlineBoard();
 
   if (result.winnerId !== null) {
+    overlay.hideDisconnectBanner();
     overlay.showVictory(result.winnerId, () => {
       cleanupOnline();
       showMainMenu();
