@@ -740,6 +740,7 @@ function setupNetworkHandlers(): void {
 
   netClient.on('error', (msg) => {
     const m = msg as ServerMessage & { type: 'error' };
+    overlay.hideDisconnectBanner();
     overlay.showError(m.message, () => {
       cleanupOnline();
       showMainMenu();
