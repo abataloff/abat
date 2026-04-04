@@ -440,6 +440,7 @@ export class Overlay {
     popup.querySelector('#split-cancel')!.addEventListener('click', () => {
       document.removeEventListener('keydown', onPresetKey);
       popup.remove();
+      this.clearSelection(board);
     });
   }
 
@@ -556,6 +557,7 @@ export class Overlay {
     popup.querySelector('#split-cancel')!.addEventListener('click', () => {
       document.removeEventListener('keydown', onPresetKey);
       popup.remove();
+      this.clearSelection(board);
     });
   }
 

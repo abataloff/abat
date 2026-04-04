@@ -126,6 +126,31 @@ export class RouteManager {
     this.routes = this.routes.filter((r) => !toRemove.includes(r.id));
   }
 
+  /** Restore routes from serialized data */
+  restore(data: { playerId: number; currentPos: Position; path: Position[]; unitCount: number }[]): void {
+    this.routes = [];
+    this.nextId = 1;
+    for (const r of data) {
+      this.routes.push({
+        id: this.nextId++,
+        playerId: r.playerId,
+        currentPos: r.currentPos,
+        path: [...r.path],
+        unitCount: r.unitCount,
+      });
+    }
+  }
+
+  /** Serialize routes for persistence */
+  serialize(): { playerId: number; currentPos: Position; path: Position[]; unitCount: number }[] {
+    return this.routes.map((r) => ({
+      playerId: r.playerId,
+      currentPos: r.currentPos,
+      path: [...r.path],
+      unitCount: r.unitCount,
+    }));
+  }
+
   clear(): void {
     this.routes = [];
     this.nextId = 1;

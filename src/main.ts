@@ -568,13 +568,27 @@ let netCombats: CombatResult[] = [];
 let netVisibleKeys: Set<string> | null = null;
 let netOrdersSubmitted = false;
 let netRoomCode = '';
+let netRouteManager = new RouteManager();
 
 function saveNetSession(roomCode: string, playerId: number): void {
   sessionStorage.setItem('abat-room', JSON.stringify({ roomCode, playerId }));
 }
 
+function saveNetRoutes(): void {
+  sessionStorage.setItem('abat-routes', JSON.stringify(netRouteManager.serialize()));
+}
+
+function restoreNetRoutes(): void {
+  try {
+    const raw = sessionStorage.getItem('abat-routes');
+    if (!raw) return;
+    netRouteManager.restore(JSON.parse(raw));
+  } catch { /* ignore */ }
+}
+
 function clearNetSession(): void {
   sessionStorage.removeItem('abat-room');
+  sessionStorage.removeItem('abat-routes');
 }
 
 function getNetSession(): { roomCode: string; playerId: number } | null {
@@ -625,6 +639,7 @@ function cleanupOnline(): void {
   netBoard = null;
   netPlayers = [];
   netPendingOrders = [];
+  netRouteManager.clear();
   netCombats = [];
   netVisibleKeys = null;
   netOrdersSubmitted = false;
@@ -745,6 +760,8 @@ function startOnlineGame(snapshot: BoardSnapshot): void {
   overlay.clear();
   netRenderer = new Renderer(canvas, netConfig.cols, netConfig.rows);
   netInput = new InputHandler(canvas, netRenderer);
+  netRouteManager = new RouteManager();
+  restoreNetRoutes();
 
   netInput.onCellClick((pos) => {
     if (netOrdersSubmitted || !netBoard) return;
@@ -787,6 +804,7 @@ function startOnlineOrderInput(): void {
     },
     (orders) => {
       netPendingOrders = orders;
+      saveNetRoutes();
       renderOnlineBoard();
     },
     (state) => {
@@ -794,6 +812,7 @@ function startOnlineOrderInput(): void {
       netValidMoves = state.validMoves;
       renderOnlineBoard();
     },
+    netRouteManager,
   );
 
   renderOnlineBoard();
@@ -804,6 +823,10 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
 
   netCombats = result.combats;
   applySnapshot(result.board);
+  if (netBoard) {
+    netRouteManager.advanceRoutes(netBoard);
+    saveNetRoutes();
+  }
 
   for (const pid of result.eliminations) {
     const p = netPlayers.find((pl) => pl.id === pid);
@@ -855,6 +878,12 @@ function renderOnlineBoard(): void {
   if (!netRenderer || !netBoard) return;
 
   const highlightCells = netBoard.getPlayerStacks(netPlayerId).map((s) => s.pos);
+  const routePaths = netRouteManager.getPlayerRoutes(netPlayerId).map((r) => ({
+    playerId: r.playerId,
+    currentPos: r.currentPos,
+    path: r.path,
+    unitCount: r.unitCount,
+  }));
 
   const state: RenderState = {
     board: netBoard,
@@ -865,7 +894,7 @@ function renderOnlineBoard(): void {
     highlightCells,
     combatCells: netCombats,
     visibleCells: netVisibleKeys,
-    routePaths: [],
+    routePaths,
   };
   netRenderer.render(state);
 }
