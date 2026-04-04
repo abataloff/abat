@@ -574,8 +574,21 @@ function saveNetSession(roomCode: string, playerId: number): void {
   sessionStorage.setItem('abat-room', JSON.stringify({ roomCode, playerId }));
 }
 
+function saveNetRoutes(): void {
+  sessionStorage.setItem('abat-routes', JSON.stringify(netRouteManager.serialize()));
+}
+
+function restoreNetRoutes(): void {
+  try {
+    const raw = sessionStorage.getItem('abat-routes');
+    if (!raw) return;
+    netRouteManager.restore(JSON.parse(raw));
+  } catch { /* ignore */ }
+}
+
 function clearNetSession(): void {
   sessionStorage.removeItem('abat-room');
+  sessionStorage.removeItem('abat-routes');
 }
 
 function getNetSession(): { roomCode: string; playerId: number } | null {
@@ -748,6 +761,7 @@ function startOnlineGame(snapshot: BoardSnapshot): void {
   netRenderer = new Renderer(canvas, netConfig.cols, netConfig.rows);
   netInput = new InputHandler(canvas, netRenderer);
   netRouteManager = new RouteManager();
+  restoreNetRoutes();
 
   netInput.onCellClick((pos) => {
     if (netOrdersSubmitted || !netBoard) return;
@@ -790,6 +804,7 @@ function startOnlineOrderInput(): void {
     },
     (orders) => {
       netPendingOrders = orders;
+      saveNetRoutes();
       renderOnlineBoard();
     },
     (state) => {
@@ -808,7 +823,10 @@ function onNetTurnResolved(result: TurnResolvedMsg): void {
 
   netCombats = result.combats;
   applySnapshot(result.board);
-  if (netBoard) netRouteManager.advanceRoutes(netBoard);
+  if (netBoard) {
+    netRouteManager.advanceRoutes(netBoard);
+    saveNetRoutes();
+  }
 
   for (const pid of result.eliminations) {
     const p = netPlayers.find((pl) => pl.id === pid);
