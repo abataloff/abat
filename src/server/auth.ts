@@ -10,6 +10,11 @@ const JWT_SECRET = process.env.JWT_SECRET || 'dev-secret-change-me';
 const BASE_URL = process.env.BASE_URL || 'http://localhost:8051';
 const ADMIN_EMAILS = (process.env.ADMIN_EMAILS || '').split(',').map((e) => e.trim()).filter(Boolean);
 
+// Вход через Google по умолчанию отключён (запрет OAuth в РФ).
+// Fail-safe: включается только явным GOOGLE_AUTH_ENABLED=1, чтобы автообновление
+// образа (Watchtower не перечитывает env) не открыло вход обратно случайно.
+const GOOGLE_AUTH_DISABLED = !['1', 'true', 'yes'].includes((process.env.GOOGLE_AUTH_ENABLED || '').toLowerCase());
+
 const COOKIE_MAX_AGE = 30 * 24 * 60 * 60; // 30 days in seconds
 
 export function parseCookies(req: IncomingMessage): Record<string, string> {
@@ -83,6 +88,10 @@ function httpsPost(url: string, body: string, contentType: string): Promise<stri
 export function registerAuthRoutes(): void {
   // Redirect to Google consent page
   addRoute('GET', '/auth/google', (_req, res) => {
+    if (GOOGLE_AUTH_DISABLED) {
+      redirect(res, '/?auth=disabled');
+      return;
+    }
     const redirectUri = `${BASE_URL}/auth/google/callback`;
     const params = new URLSearchParams({
       client_id: GOOGLE_CLIENT_ID,
@@ -97,6 +106,10 @@ export function registerAuthRoutes(): void {
 
   // Handle Google callback
   addRoute('GET', '/auth/google/callback', async (req, res) => {
+    if (GOOGLE_AUTH_DISABLED) {
+      redirect(res, '/?auth=disabled');
+      return;
+    }
     try {
       const url = new URL(req.url!, BASE_URL);
       const code = url.searchParams.get('code');
@@ -149,10 +162,11 @@ export function registerAuthRoutes(): void {
   addRoute('GET', '/api/me', (req, res) => {
     const user = getUserFromRequest(req);
     if (!user) {
-      sendJson(res, { user: null });
+      sendJson(res, { user: null, googleAuthDisabled: GOOGLE_AUTH_DISABLED });
       return;
     }
     sendJson(res, {
+      googleAuthDisabled: GOOGLE_AUTH_DISABLED,
       user: {
         id: user.id,
         name: user.name,
