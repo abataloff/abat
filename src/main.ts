@@ -29,12 +29,14 @@ function generateGuestName(): string {
 }
 
 let currentUser: { id: number; name: string; nickname?: string | null; email: string; avatarUrl?: string; isAdmin: boolean } | null = null;
+let googleAuthDisabled = false;
 
 async function fetchUser(): Promise<void> {
   try {
     const res = await fetch('/api/me');
     const data = await res.json();
     currentUser = data.user;
+    googleAuthDisabled = !!data.googleAuthDisabled;
   } catch {
     currentUser = null;
   }
@@ -70,7 +72,7 @@ function showMainMenu(): void {
       defaultName: getDefaultName(),
     }),
     currentUser,
-    () => { window.location.href = '/auth/google'; },
+    googleAuthDisabled ? undefined : () => { window.location.href = '/auth/google'; },
     async () => {
       await fetch('/api/logout', { method: 'POST' });
       currentUser = null;
@@ -78,6 +80,7 @@ function showMainMenu(): void {
     },
     onSetNickname,
     () => overlay.showRules(showMainMenu),
+    googleAuthDisabled,
   );
 }
 

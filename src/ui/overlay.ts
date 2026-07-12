@@ -795,6 +795,7 @@ export class Overlay {
     onLogout?: () => void,
     onSetNickname?: (nickname: string) => void,
     onRules?: () => void,
+    googleAuthDisabled?: boolean,
   ): void {
     const displayName = user ? this.escapeHtml(user.nickname || user.name) : '';
     const userHtml = user
@@ -806,11 +807,15 @@ export class Overlay {
           ${user.isAdmin ? `<a href="/admin" class="btn btn-sm btn-ghost" style="text-decoration:none; font-family:monospace; --accent:#E76F51;">Админка</a>` : ''}
           <button id="btn-logout" class="btn btn-sm btn-danger" style="font-family:monospace;">Выйти</button>
         </div>`
-      : (onLogin
+      : (googleAuthDisabled
         ? `<div class="user-bar">
-            <button id="btn-login" class="btn btn-sm btn-ghost" style="font-family:monospace;">Войти через Google</button>
+            <span style="font-size:0.8rem; opacity:0.6; font-family:monospace;" title="Google ограничил вход в РФ. Играть можно без входа.">Вход через Google временно недоступен в РФ</span>
           </div>`
-        : '');
+        : (onLogin
+          ? `<div class="user-bar">
+              <button id="btn-login" class="btn btn-sm btn-ghost" style="font-family:monospace;">Войти через Google</button>
+            </div>`
+          : ''));
 
     this.container.innerHTML = `
       <div class="screen">

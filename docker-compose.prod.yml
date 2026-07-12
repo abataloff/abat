@@ -14,3 +14,6 @@ services:
       - JWT_SECRET=${JWT_SECRET}
       - BASE_URL=${BASE_URL}
       - ADMIN_EMAILS=${ADMIN_EMAILS}
+      # Вход через Google выключен по умолчанию (запрет OAuth в РФ).
+      # Чтобы вернуть - выставить GOOGLE_AUTH_ENABLED=1 и пересоздать контейнер.
+      - GOOGLE_AUTH_ENABLED=${GOOGLE_AUTH_ENABLED:-0}
